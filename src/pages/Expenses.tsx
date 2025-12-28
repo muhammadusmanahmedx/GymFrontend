@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Receipt, Filter } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -27,7 +27,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { mockExpenses, Expense, formatCurrency } from '@/data/mockData';
+import { Expense, formatCurrency } from '@/data/mockData';
+import * as expensesApi from '@/services/expensesApi';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 const categoryColors: Record<string, string> = {
@@ -39,15 +41,12 @@ const categoryColors: Record<string, string> = {
   other: 'bg-muted text-muted-foreground border-border',
 };
 
-const months = [
-  { value: 'all', label: 'All Months' },
-  { value: '2024-12', label: 'December 2024' },
-  { value: '2024-11', label: 'November 2024' },
-  { value: '2024-10', label: 'October 2024' },
-];
+// months will be generated from user's registration month through next month
 
 const Expenses = () => {
-  const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const { user } = useAuth();
+  const [months, setMonths] = useState<{ value: string; label: string }[]>([]);
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -71,29 +70,81 @@ const Expenses = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const newExpense: Expense = {
-      id: Date.now().toString(),
-      description: formData.description,
-      amount: parseFloat(formData.amount),
-      category: formData.category,
-      date: formData.date,
-    };
-
-    setExpenses((prev) => [newExpense, ...prev]);
-    setIsModalOpen(false);
-    setFormData({
-      description: '',
-      amount: '',
-      category: 'other',
-      date: new Date().toISOString().split('T')[0],
-    });
-
-    toast({
-      title: 'Expense added',
-      description: `${formData.description} - ${formatCurrency(parseFloat(formData.amount))} recorded.`,
-    });
+    (async () => {
+      try {
+        const gymId = (user as any)?.gymId || (user as any)?._id || (user as any)?.id;
+        if (!gymId) throw new Error('No gym id available for current user');
+        const payload = {
+          gymId,
+          description: formData.description,
+          amount: parseFloat(formData.amount),
+          category: formData.category,
+          date: formData.date,
+        };
+        const created: any = await expensesApi.createExpense(payload);
+        const mapped: Expense = {
+          id: created._id || created.id,
+          description: created.description,
+          amount: created.amount,
+          category: created.category,
+          date: new Date(created.date).toISOString().split('T')[0],
+        };
+        setExpenses((prev) => [mapped, ...prev]);
+        setIsModalOpen(false);
+        setFormData({ description: '', amount: '', category: 'other', date: new Date().toISOString().split('T')[0] });
+        toast({ title: 'Expense added', description: `${formData.description} - ${formatCurrency(parseFloat(formData.amount))} recorded.` });
+      } catch (err: any) {
+        toast({ title: 'Error', description: err?.message || 'Failed to add expense', variant: 'destructive' });
+      }
+    })();
   };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const gymId = (user as any)?.gymId || (user as any)?._id || (user as any)?.id;
+        const data: any = await expensesApi.getExpenses(gymId);
+        if (Array.isArray(data)) {
+          setExpenses(data.map((e: any) => ({ id: e._id || e.id, description: e.description, amount: e.amount, category: e.category, date: new Date(e.date).toISOString().split('T')[0] })));
+        }
+      } catch (err) {
+        // ignore; keep empty state
+      }
+    })();
+    // generate month filter range based on user's registration date
+    (function generateMonths() {
+      const monthsArr: { value: string; label: string }[] = [];
+      monthsArr.push({ value: 'all', label: 'All Months' });
+      let start: Date;
+      if (user && (user as any).createdAt) {
+        start = new Date((user as any).createdAt);
+      } else if (user && (user as any).registeredAt) {
+        start = new Date((user as any).registeredAt);
+      } else {
+        // fallback to 6 months ago
+        start = new Date();
+        start.setMonth(start.getMonth() - 6);
+      }
+      // normalize to first day of month
+      start = new Date(Date.UTC(start.getFullYear(), start.getMonth(), 1));
+
+      const now = new Date();
+      // include next month as it goes on
+      const end = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1));
+
+      let cursor = new Date(start);
+      while (cursor <= end) {
+        const y = cursor.getUTCFullYear();
+        const m = cursor.getUTCMonth();
+        const value = `${y}-${String(m + 1).padStart(2, '0')}`;
+        const label = cursor.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+        monthsArr.push({ value, label });
+        cursor = new Date(Date.UTC(y, m + 1, 1));
+      }
+
+      setMonths(monthsArr);
+    })();
+  }, [user]);
 
   return (
     <DashboardLayout>

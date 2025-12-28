@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { defaultSettings, GymSettings, formatCurrency } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { authFetch } from '@/lib/api';
 
 const Settings = () => {
   const [settings, setSettings] = useState<GymSettings>(() => {
@@ -14,14 +16,42 @@ const Settings = () => {
     return saved ? JSON.parse(saved) : defaultSettings;
   });
   const { toast } = useToast();
+  const { user, updateUser } = useAuth();
+
+  useEffect(() => {
+    (async () => {
+      if (!user?._id && !user?.id) return;
+      try {
+        const userId = user._id || user.id;
+        const res = await authFetch(`/settings/${encodeURIComponent(userId)}`);
+        if (res && res.monthlyFee !== undefined) setSettings((prev) => ({ ...prev, monthlyFee: res.monthlyFee }));
+        // ensure gymName comes from the user document (settings no longer stores gymName)
+        if (user?.gymName) setSettings((prev) => ({ ...prev, gymName: user.gymName }));
+      } catch (err) {
+        // ignore — fallback to local settings
+      }
+    })();
+  }, [user]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('gymSettings', JSON.stringify(settings));
-    toast({
-      title: 'Settings saved',
-      description: 'Your gym settings have been updated successfully.',
-    });
+    (async () => {
+      try {
+        if (user?._id || user?.id) {
+          const res = await authFetch('/settings', { method: 'POST', body: JSON.stringify({ userId: user._id || user.id, gymName: settings.gymName, monthlyFee: settings.monthlyFee }) });
+          if (res?.user && updateUser) updateUser({ gymName: res.user.gymName });
+        } else {
+          localStorage.setItem('gymSettings', JSON.stringify(settings));
+        }
+        localStorage.setItem('gymSettings', JSON.stringify(settings));
+        toast({
+          title: 'Settings saved',
+          description: 'Your gym settings have been updated successfully.',
+        });
+      } catch (err: any) {
+        toast({ title: 'Error', description: err?.message || 'Failed to save settings', variant: 'destructive' });
+      }
+    })();
   };
 
   return (

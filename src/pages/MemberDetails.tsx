@@ -23,7 +23,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { mockMembers, mockFees, Member, Fee, formatCurrency, defaultSettings } from '@/data/mockData';
+import { mockFees, Member, Fee, formatCurrency, defaultSettings } from '@/data/mockData';
+import * as feesApi from '@/services/feesApi';
+import * as membersApi from '@/services/membersApi';
+import { useMembers } from '@/contexts/MembersContext';
 import { useToast } from '@/hooks/use-toast';
 
 const statusColors = {
@@ -37,11 +40,9 @@ const MemberDetails = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [members, setMembers] = useState<Member[]>(() => {
-    const saved = localStorage.getItem('gymMembers');
-    return saved ? JSON.parse(saved) : mockMembers;
-  });
-  
+  const { refresh } = useMembers();
+
+  const [member, setMember] = useState<Member | null>(null);
   const [fees, setFees] = useState<Fee[]>(() => {
     const saved = localStorage.getItem('gymFees');
     return saved ? JSON.parse(saved) : mockFees;
@@ -52,16 +53,51 @@ const MemberDetails = () => {
     return saved ? JSON.parse(saved) : defaultSettings;
   });
 
-  const member = members.find((m) => m.id === id);
   const memberFees = fees.filter((f) => f.memberId === id);
-
-  useEffect(() => {
-    localStorage.setItem('gymMembers', JSON.stringify(members));
-  }, [members]);
+  // prefer fees from API; if none, fall back to member.feeHistory
+  const displayFees = (() => {
+    if (memberFees && memberFees.length > 0) return memberFees;
+    if (member && Array.isArray((member as any).feeHistory) && (member as any).feeHistory.length > 0) {
+      return (member as any).feeHistory.map((f: any) => ({
+        id: f._id || f.id,
+        memberId: id || String(f.memberId || id),
+        amount: f.amount,
+        month: f.month,
+        dueDate: f.dueDate ? new Date(f.dueDate).toISOString().split('T')[0] : undefined,
+        status: f.status,
+        paidDate: f.paidDate ? new Date(f.paidDate).toISOString().split('T')[0] : undefined,
+      }));
+    }
+    return [];
+  })();
 
   useEffect(() => {
     localStorage.setItem('gymFees', JSON.stringify(fees));
   }, [fees]);
+
+  useEffect(() => {
+    if (!id) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await membersApi.getMember(id);
+        if (mounted) setMember(data);
+        // load fees for this member from backend
+        try {
+          const feeData: any = await feesApi.getFees(id);
+          if (Array.isArray(feeData)) {
+            setFees(feeData.map((f: any) => ({ id: f._id || f.id, memberId: String(f.memberId), amount: f.amount, month: f.month, dueDate: new Date(f.dueDate).toISOString().split('T')[0], status: f.status, paidDate: f.paidDate ? new Date(f.paidDate).toISOString().split('T')[0] : undefined })));
+          }
+        } catch (e) {
+          // ignore fees load errors
+        }
+      } catch (err: any) {
+        // keep existing UI behavior: navigate back if not found
+        if (err?.status === 404) navigate('/members');
+      }
+    })();
+    return () => { mounted = false; };
+  }, [id, navigate]);
 
   if (!member) {
     return (
@@ -78,43 +114,136 @@ const MemberDetails = () => {
   }
 
   const handleToggleStatus = () => {
+    if (!member) return;
     const newStatus = member.status === 'active' ? 'left' : 'active';
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === id ? { ...m, status: newStatus } : m
-      )
-    );
-    toast({
-      title: newStatus === 'left' ? 'Member marked as left' : 'Member reactivated',
-      description: `${member.name} has been ${newStatus === 'left' ? 'marked as left' : 'reactivated'}.`,
-    });
+    (async () => {
+      try {
+        const updated = await membersApi.updateMember(member._id || member.id, { status: newStatus });
+        setMember(updated as any);
+        await refresh();
+        toast({
+          title: newStatus === 'left' ? 'Member marked as left' : 'Member reactivated',
+          description: `${member.name} has been ${newStatus === 'left' ? 'marked as left' : 'reactivated'}.`,
+        });
+      } catch (err: any) {
+        toast({ title: 'Error', description: err?.message || 'Failed to update member', variant: 'destructive' });
+      }
+    })();
   };
 
   const handleMarkFeePaid = (feeId: string) => {
-    setFees((prev) =>
-      prev.map((fee) =>
-        fee.id === feeId
-          ? {
-              ...fee,
-              status: 'paid',
-              paidDate: new Date().toISOString().split('T')[0],
+    // call backend to mark fee paid and create next month's fee if applicable
+    (async () => {
+      const now = new Date();
+      const nowStr = now.toISOString();
+
+      // optimistic UI update: update fees state and member.feeHistory (if present)
+      const prevFees = fees;
+      const prevMember = member;
+
+      // update fees array
+      setFees((cur) => cur.map((f) => {
+        if (String(f.id) === String(feeId) || String(f.id) === String(feeId)) {
+          return { ...f, status: 'paid', paidDate: now.toISOString().split('T')[0] } as Fee;
+        }
+        return f;
+      }));
+
+      // update member.feeHistory if used for display
+      if (member) {
+        try {
+          const mh = (member as any).feeHistory;
+          if (Array.isArray(mh) && mh.length > 0) {
+            const newFH = mh.map((h: any) => {
+              if (String(h._id) === String(feeId) || String(h._id) === String(feeId) || (!h._id && String(h.month) === String(new Date().toISOString().slice(0,7)))) {
+                return { ...h, status: 'paid', paidDate: now.toISOString() };
+              }
+              return h;
+            });
+            setMember({ ...(member as any), feeHistory: newFH, feeStatus: 'paid', lastPayment: now.toISOString().split('T')[0] } as any);
+          } else {
+            setMember({ ...(member as any), feeStatus: 'paid', lastPayment: now.toISOString().split('T')[0] } as any);
+          }
+        } catch (e) {
+          // ignore optimistic member update errors
+        }
+      }
+
+      toast({ title: 'Fee marked as paid', description: 'Payment recorded.', });
+
+      try {
+        const updated: any = await feesApi.updateFee(feeId, { status: 'paid', paidDate: nowStr });
+        // refresh fees list from backend (reflect any server-side changes)
+        const feeData: any = await feesApi.getFees(id);
+        const arr = Array.isArray(feeData) ? feeData : (feeData && Array.isArray(feeData.data) ? feeData.data : (feeData && Array.isArray(feeData.fees) ? feeData.fees : []));
+        if (Array.isArray(arr)) {
+          setFees(arr.map((f: any) => ({ id: f._id || f.id, memberId: String(f.memberId), amount: f.amount, month: f.month, dueDate: f.dueDate ? new Date(f.dueDate).toISOString().split('T')[0] : undefined, status: f.status, paidDate: f.paidDate ? new Date(f.paidDate).toISOString().split('T')[0] : undefined })));
+        }
+
+        // update member summary fields from server
+        if (member) {
+          try {
+            const updatedMember = await membersApi.updateMember(member._id || member.id, { feeStatus: 'paid', lastPayment: nowStr.split('T')[0] });
+            setMember(updatedMember as any);
+          } catch (e) {
+            // ignore
+          }
+        }
+        await refresh();
+      } catch (err: any) {
+        // on error, verify whether server processed the payment; if not revert optimistic update
+        try {
+          const feeData: any = await feesApi.getFees(id);
+          const arr = Array.isArray(feeData) ? feeData : (feeData && Array.isArray(feeData.data) ? feeData.data : (feeData && Array.isArray(feeData.fees) ? feeData.fees : []));
+          const found = arr.find((f: any) => String(f._id || f.id) === String(feeId) || (String(f.memberId) === String(id) && String(f.month) === String(new Date().toISOString().slice(0,7))));
+          if (found && found.status === 'paid') {
+            // server marked paid; refresh UI to authoritative state
+            if (Array.isArray(arr)) setFees(arr.map((f: any) => ({ id: f._id || f.id, memberId: String(f.memberId), amount: f.amount, month: f.month, dueDate: f.dueDate ? new Date(f.dueDate).toISOString().split('T')[0] : undefined, status: f.status, paidDate: f.paidDate ? new Date(f.paidDate).toISOString().split('T')[0] : undefined })));
+            try {
+              const updatedMember = await membersApi.getMember(id);
+              setMember(updatedMember as any);
+            } catch (e) { /* ignore */ }
+            await refresh();
+            return;
+          }
+        } catch (e) {
+          // ignore verification errors
+        }
+
+        // revert optimistic UI or try a graceful recovery for missing-fee errors
+        const errMsg = err?.message || '';
+        if (/fee not found|no fee found|not found/i.test(errMsg)) {
+          try {
+            const feeData2: any = await feesApi.getFees(id);
+            const arr2 = Array.isArray(feeData2)
+              ? feeData2
+              : (feeData2 && Array.isArray(feeData2.data) ? feeData2.data : (feeData2 && Array.isArray(feeData2.fees) ? feeData2.fees : []));
+            if (Array.isArray(arr2)) {
+              setFees(arr2.map((f: any) => ({ id: f._id || f.id, memberId: String(f.memberId), amount: f.amount, month: f.month, dueDate: f.dueDate ? new Date(f.dueDate).toISOString().split('T')[0] : undefined, status: f.status, paidDate: f.paidDate ? new Date(f.paidDate).toISOString().split('T')[0] : undefined })));
             }
-          : fee
-      )
-    );
-    
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === id
-          ? { ...m, feeStatus: 'paid', lastPayment: new Date().toISOString().split('T')[0] }
-          : m
-      )
-    );
-    
-    toast({
-      title: 'Fee marked as paid',
-      description: `Payment recorded for ${member.name}.`,
-    });
+            try {
+              const updatedMember2 = await membersApi.getMember(id);
+              setMember(updatedMember2 as any);
+            } catch (e) { /* ignore member refresh errors */ }
+            await refresh();
+            // non-blocking notice instead of destructive dialog
+            toast({ title: 'Updated', description: 'Payment processed; refreshed data.' });
+            return;
+          } catch (e2) {
+            // recovery failed — fall through to revert below
+          }
+          // recovery failed: revert optimistic UI and show neutral notice
+          setFees(prevFees);
+          if (prevMember) setMember(prevMember);
+          toast({ title: 'Notice', description: 'Server reported missing fee. Data refreshed.' });
+        } else {
+          // other errors: revert and show destructive toast
+          setFees(prevFees);
+          if (prevMember) setMember(prevMember);
+          toast({ title: 'Error', description: errMsg || 'Failed to update payment', variant: 'destructive' });
+        }
+      }
+    })();
   };
 
   return (
@@ -174,7 +303,7 @@ const MemberDetails = () => {
               <div className="rounded-lg border border-border bg-muted/30 p-3 sm:p-4 text-center">
                 <p className="text-xs sm:text-sm text-muted-foreground">Monthly Fee</p>
                 <p className="text-base sm:text-xl font-bold text-foreground">
-                  {formatCurrency(settings.monthlyFee)}
+                  {formatCurrency((member && (member as any).feeHistory && (member as any).feeHistory[0]?.amount) || settings.monthlyFee)}
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-muted/30 p-3 sm:p-4 text-center">
@@ -228,11 +357,11 @@ const MemberDetails = () => {
             </div>
           </div>
 
-          {memberFees.length > 0 ? (
+          {displayFees.length > 0 ? (
             <>
               {/* Mobile Card View */}
               <div className="space-y-3 sm:hidden">
-                {memberFees.map((fee) => (
+                {displayFees.map((fee) => (
                   <div
                     key={fee.id}
                     className="rounded-lg border border-border bg-muted/30 p-3"
@@ -260,7 +389,7 @@ const MemberDetails = () => {
                         <span>{fee.paidDate}</span>
                       </div>
                     )}
-                    {fee.status !== 'paid' && (
+                    {fee.status !== 'paid' && fee.id && (
                       <Button
                         variant="success"
                         size="sm"
@@ -289,7 +418,7 @@ const MemberDetails = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {memberFees.map((fee) => (
+                    {displayFees.map((fee) => (
                       <TableRow key={fee.id}>
                         <TableCell className="font-medium">{fee.month}</TableCell>
                         <TableCell>{formatCurrency(fee.amount)}</TableCell>
@@ -308,7 +437,7 @@ const MemberDetails = () => {
                           {fee.paidDate || '-'}
                         </TableCell>
                         <TableCell className="text-right">
-                          {fee.status !== 'paid' && (
+                          {fee.status !== 'paid' && fee.id && (
                             <Button
                               variant="success"
                               size="sm"

@@ -38,6 +38,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { mockMembers, Member, formatCurrency, defaultSettings } from '@/data/mockData';
+import { useMembers } from '@/contexts/MembersContext';
 import { useToast } from '@/hooks/use-toast';
 
 const statusColors = {
@@ -48,12 +49,10 @@ const statusColors = {
 
 const Members = () => {
   const navigate = useNavigate();
-  const [members, setMembers] = useState<Member[]>(() => {
-    const saved = localStorage.getItem('gymMembers');
-    return saved ? JSON.parse(saved) : mockMembers;
-  });
+  const { members, loading, create, update, remove, refresh } = useMembers();
+  // local state for editing UI
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'left'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'left' | 'paid' | 'unpaid'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [formData, setFormData] = useState({
@@ -70,15 +69,23 @@ const Members = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    localStorage.setItem('gymMembers', JSON.stringify(members));
-  }, [members]);
+    // keep local cache for quick offline fallback
+    if (!loading && members.length) localStorage.setItem('gymMembers', JSON.stringify(members));
+  }, [members, loading]);
 
   const filteredMembers = members.filter((member) => {
     const matchesSearch =
       member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       member.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || member.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesStatusOrFee = (() => {
+      if (statusFilter === 'all') return true;
+      if (statusFilter === 'active' || statusFilter === 'left') return member.status === statusFilter;
+      if (statusFilter === 'paid') return member.feeStatus === 'paid';
+      if (statusFilter === 'unpaid') return member.feeStatus !== 'paid';
+      return true;
+    })();
+
+    return matchesSearch && matchesStatusOrFee;
   });
 
   const openAddModal = () => {
@@ -105,34 +112,20 @@ const Members = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingMember) {
-      setMembers(prev =>
-        prev.map(m =>
-          m.id === editingMember.id
-            ? { ...m, ...formData }
-            : m
-        )
-      );
-      toast({
-        title: 'Member updated',
-        description: `${formData.name} has been updated successfully.`,
-      });
-    } else {
-      const newMember: Member = {
-        id: Date.now().toString(),
-        ...formData,
-        joinDate: new Date().toISOString().split('T')[0],
-        status: 'active',
-        feeStatus: 'pending',
-      };
-      setMembers(prev => [...prev, newMember]);
-      toast({
-        title: 'Member added',
-        description: `${formData.name} has been added successfully.`,
-      });
-    }
-    
-    setIsModalOpen(false);
+    (async () => {
+      try {
+        if (editingMember) {
+          await update(editingMember._id || editingMember.id, formData);
+          toast({ title: 'Member updated', description: `${formData.name} has been updated successfully.` });
+        } else {
+          await create({ ...formData });
+          toast({ title: 'Member added', description: `${formData.name} has been added successfully.` });
+        }
+        setIsModalOpen(false);
+      } catch (err: any) {
+        toast({ title: 'Error', description: err?.message || 'Failed to save member', variant: 'destructive' });
+      }
+    })();
   };
 
   const handleRowClick = (memberId: string) => {
@@ -167,74 +160,79 @@ const Members = () => {
               className="pl-10"
             />
           </div>
-          <Select value={statusFilter} onValueChange={(v: 'all' | 'active' | 'left') => setStatusFilter(v)}>
-            <SelectTrigger className="w-full sm:w-[150px]">
+          <Select value={statusFilter} onValueChange={(v: 'all' | 'active' | 'left' | 'paid' | 'unpaid') => setStatusFilter(v)}>
+            <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Members</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="left">Left</SelectItem>
+              <SelectItem value="all">All Members / Fees</SelectItem>
+              <SelectItem value="active">Active Members</SelectItem>
+              <SelectItem value="left">Left Members</SelectItem>
+              <SelectItem value="paid">Members with Paid Fees</SelectItem>
+              <SelectItem value="unpaid">Members with Pending / Unpaid Fees</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* Mobile Card View */}
         <div className="space-y-3 sm:hidden">
-          {filteredMembers.map((member) => (
-            <motion.div
-              key={member.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-xl border border-border bg-card p-4 cursor-pointer active:bg-muted/50"
-              onClick={() => handleRowClick(member.id)}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
-                    <User className="h-5 w-5 text-primary" />
+          {filteredMembers.map((member) => {
+            const memberId = member._id || member.id;
+            return (
+              <motion.div
+                key={memberId}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl border border-border bg-card p-4 cursor-pointer active:bg-muted/50"
+                onClick={() => handleRowClick(memberId)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground truncate">{member.name}</p>
+                      <p className="text-sm text-muted-foreground truncate">{member.phone}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground truncate">{member.name}</p>
-                    <p className="text-sm text-muted-foreground truncate">{member.phone}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="flex-shrink-0"
+                    onClick={(e) => openEditModal(member, e)}
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="flex gap-2">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${member.status === 'active' 
+                        ? 'bg-success/10 text-success border-success/20' 
+                        : 'bg-muted text-muted-foreground border-border'
+                      }`}
+                    >
+                      {member.status === 'active' ? 'Active' : 'Left'}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs capitalize ${statusColors[member.feeStatus]}`}
+                    >
+                      {member.feeStatus}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <span className="text-sm font-medium text-foreground">
+                      {formatCurrency(settings.monthlyFee)}
+                    </span>
+                    <ChevronRight className="h-4 w-4" />
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="flex-shrink-0"
-                  onClick={(e) => openEditModal(member, e)}
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="mt-3 flex items-center justify-between">
-                <div className="flex gap-2">
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${member.status === 'active' 
-                      ? 'bg-success/10 text-success border-success/20' 
-                      : 'bg-muted text-muted-foreground border-border'
-                    }`}
-                  >
-                    {member.status === 'active' ? 'Active' : 'Left'}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={`text-xs capitalize ${statusColors[member.feeStatus]}`}
-                  >
-                    {member.feeStatus}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <span className="text-sm font-medium text-foreground">
-                    {formatCurrency(settings.monthlyFee)}
-                  </span>
-                  <ChevronRight className="h-4 w-4" />
-                </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
           
           {filteredMembers.length === 0 && (
             <div className="py-12 text-center text-muted-foreground text-sm">
@@ -262,75 +260,78 @@ const Members = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredMembers.map((member) => (
-                  <TableRow 
-                    key={member.id} 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleRowClick(member.id)}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                          <User className="h-5 w-5 text-primary" />
+                {filteredMembers.map((member) => {
+                  const memberId = member._id || member.id;
+                  return (
+                    <TableRow 
+                      key={memberId} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleRowClick(memberId)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                            <User className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {member.name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {member.email}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {member.name}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {member.email}
-                          </p>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {member.phone}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={member.status === 'active' 
+                            ? 'bg-success/10 text-success border-success/20' 
+                            : 'bg-muted text-muted-foreground border-border'
+                          }
+                        >
+                          {member.status === 'active' ? 'Active' : 'Left'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`capitalize ${statusColors[member.feeStatus]}`}
+                        >
+                          {member.feeStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-semibold">
+                        {formatCurrency(settings.monthlyFee)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRowClick(memberId);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => openEditModal(member, e)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {member.phone}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={member.status === 'active' 
-                          ? 'bg-success/10 text-success border-success/20' 
-                          : 'bg-muted text-muted-foreground border-border'
-                        }
-                      >
-                        {member.status === 'active' ? 'Active' : 'Left'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`capitalize ${statusColors[member.feeStatus]}`}
-                      >
-                        {member.feeStatus}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-semibold">
-                      {formatCurrency(settings.monthlyFee)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRowClick(member.id);
-                          }}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => openEditModal(member, e)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

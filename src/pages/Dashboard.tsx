@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Users, CreditCard, AlertTriangle, TrendingDown, Receipt, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import * as expensesApi from '@/services/expensesApi';
 import StatsCard from '@/components/dashboard/StatsCard';
 import { getDashboardStats, mockMembers, Member, formatCurrency, defaultSettings } from '@/data/mockData';
+import { useMembers } from '@/contexts/MembersContext';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -15,12 +18,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+const statusColors = {
+  paid: 'bg-success/10 text-success border-success/20',
+  pending: 'bg-warning/10 text-warning border-warning/20',
+  overdue: 'bg-destructive/10 text-destructive border-destructive/20',
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [members] = useState<Member[]>(() => {
-    const saved = localStorage.getItem('gymMembers');
-    return saved ? JSON.parse(saved) : mockMembers;
-  });
+  const { members } = useMembers();
 
   const [settings] = useState(() => {
     const saved = localStorage.getItem('gymSettings');
@@ -28,7 +34,48 @@ const Dashboard = () => {
   });
 
   const stats = getDashboardStats(members, settings.monthlyFee);
-  const defaulters = members.filter(m => m.feeStatus === 'overdue' && m.status === 'active');
+  const [monthlyExpenses, setMonthlyExpenses] = useState<number>(stats.monthlyExpenses || 0);
+  // find latest unpaid fee entry for each active member
+  const unpaidEntries = members
+    .filter((m: any) => m.status === 'active')
+    .map((m: any) => {
+      const fh: any[] = Array.isArray(m.feeHistory) ? m.feeHistory : [];
+      // sort by month or dueDate descending to find latest
+      const sorted = fh
+        .slice()
+        .sort((a, b) => {
+          const am = a.month || (a.dueDate ? a.dueDate.slice(0,7) : '');
+          const bm = b.month || (b.dueDate ? b.dueDate.slice(0,7) : '');
+          return bm.localeCompare(am);
+        });
+      const latestUnpaid = sorted.find((f) => f.status !== 'paid');
+      return latestUnpaid ? { member: m, fee: latestUnpaid } : null;
+    })
+    .filter(Boolean) as Array<{ member: any; fee: any }>;
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data: any = await expensesApi.getExpenses();
+        const arr = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : (data && Array.isArray(data.expenses) ? data.expenses : []));
+        const now = new Date();
+        const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const sum = arr
+          .filter((e: any) => {
+            const d = e.date || e.createdAt || e.dateString;
+            if (!d) return false;
+            return String(d).startsWith(ym);
+          })
+          .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+
+        if (mounted) setMonthlyExpenses(sum);
+      } catch (e) {
+        // ignore errors — keep mock/default value
+      }
+    })();
+    return () => { mounted = false; };
+  }, [members]);
 
   return (
     <DashboardLayout>
@@ -41,6 +88,10 @@ const Dashboard = () => {
           <p className="mt-1 text-sm sm:text-base text-muted-foreground">
             Welcome back! Here's what's happening with your gym today.
           </p>
+          {/* Managing gym name */}
+          <div className="mt-2 text-sm text-muted-foreground">
+            Managing: <span className="font-medium text-foreground">{useAuth().user?.gymName || '—'}</span>
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -50,7 +101,7 @@ const Dashboard = () => {
             value={stats.totalMembers}
             icon={Users}
             variant="primary"
-            trend={{ value: 12, isPositive: true }}
+            // trend={{ value: 12, isPositive: true }}
             delay={0}
           />
           <StatsCard
@@ -58,7 +109,7 @@ const Dashboard = () => {
             value={formatCurrency(stats.feesCollected)}
             icon={CreditCard}
             variant="success"
-            trend={{ value: 8, isPositive: true }}
+            // trend={{ value: 8, isPositive: true }}
             delay={0.1}
           />
           <StatsCard
@@ -70,7 +121,7 @@ const Dashboard = () => {
           />
           <StatsCard
             title="Monthly Expenses"
-            value={formatCurrency(stats.monthlyExpenses)}
+            value={formatCurrency(monthlyExpenses)}
             icon={Receipt}
             variant="default"
             delay={0.3}
@@ -85,41 +136,48 @@ const Dashboard = () => {
           className="rounded-xl border border-border bg-card p-4 sm:p-6"
         >
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-destructive/10">
-              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-warning/10">
+              <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-base sm:text-lg font-semibold text-foreground">
-                Defaulters List
+                Unpaid Fees
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                Members with overdue payments
+                Latest unpaid fee per active member
               </p>
             </div>
-            <Badge variant="destructive" className="text-xs">
-              {stats.defaulters}
+            <Badge variant="warning" className="text-xs">
+              {unpaidEntries.length}
             </Badge>
           </div>
 
-          {defaulters.length > 0 ? (
+          {unpaidEntries.length > 0 ? (
             <>
               {/* Mobile Card View */}
               <div className="space-y-3 sm:hidden">
-                {defaulters.map((member) => (
+                {unpaidEntries.map(({ member, fee }) => (
                   <div
-                    key={member.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50 cursor-pointer active:bg-muted"
-                    onClick={() => navigate(`/members/${member.id}`)}
+                    key={member._id || member.id}
+                    className="rounded-lg border border-border bg-muted/30 p-3 cursor-pointer"
+                    onClick={() => navigate(`/members/${member._id || member.id}`)}
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-foreground truncate">{member.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">{member.phone}</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground truncate">{member.name}</p>
+                        <p className="text-sm text-muted-foreground truncate">{member.phone}</p>
+                      </div>
+                      <Badge variant="outline" className={`text-xs capitalize ${statusColors[fee.status]}`}>
+                        {fee.status}
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-destructive text-sm">
-                        {formatCurrency(settings.monthlyFee)}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Month:</span>
+                      <span className="font-semibold">{fee.month || (fee.dueDate ? fee.dueDate.slice(0,7) : '-')}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm mt-1">
+                      <span className="text-muted-foreground">Amount:</span>
+                      <span className="font-semibold">{formatCurrency(fee.amount || settings.monthlyFee)}</span>
                     </div>
                   </div>
                 ))}
@@ -133,27 +191,23 @@ const Dashboard = () => {
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Phone</TableHead>
+                      <TableHead>Month</TableHead>
                       <TableHead>Amount Due</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {defaulters.map((member) => (
+                    {unpaidEntries.map(({ member, fee }) => (
                       <TableRow 
-                        key={member.id}
+                        key={member._id || member.id}
                         className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => navigate(`/members/${member.id}`)}
+                        onClick={() => navigate(`/members/${member._id || member.id}`)}
                       >
                         <TableCell className="font-medium">{member.name}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {member.email}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {member.phone}
-                        </TableCell>
+                        <TableCell className="text-muted-foreground">{member.email}</TableCell>
+                        <TableCell className="text-muted-foreground">{member.phone}</TableCell>
+                        <TableCell>{fee.month || (fee.dueDate ? fee.dueDate.slice(0,10) : '-')}</TableCell>
                         <TableCell>
-                          <span className="font-semibold text-destructive">
-                            {formatCurrency(settings.monthlyFee)}
-                          </span>
+                          <span className="font-semibold text-foreground">{formatCurrency(fee.amount || settings.monthlyFee)}</span>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -163,7 +217,7 @@ const Dashboard = () => {
             </>
           ) : (
             <div className="py-6 sm:py-8 text-center text-muted-foreground text-sm">
-              No defaulters! All fees are up to date.
+              No unpaid fees found for active members.
             </div>
           )}
         </motion.div>

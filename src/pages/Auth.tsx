@@ -19,6 +19,7 @@ const Auth = () => {
     email: '',
     password: '',
     gymName: '',
+    gymLocation: '',
   });
 
   const { login, register, isAuthenticated } = useAuth();
@@ -43,7 +44,7 @@ const Auth = () => {
           description: 'You have successfully logged in.',
         });
       } else {
-        await register(formData.name, formData.email, formData.password, formData.gymName);
+        await register(formData.name, formData.email, formData.password, formData.gymName, formData.gymLocation);
         toast({
           title: 'Account created!',
           description: 'Welcome to GymFlow.',
@@ -51,9 +52,10 @@ const Auth = () => {
       }
       navigate('/dashboard');
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
       toast({
         title: 'Error',
-        description: 'Something went wrong. Please try again.',
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -141,6 +143,22 @@ const Auth = () => {
                       required
                       placeholder="FitZone Gym"
                       value={formData.gymName}
+                      onChange={handleInputChange}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="gymLocation">Gym Location</Label>
+                  <div className="relative mt-1">
+                    <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="gymLocation"
+                      name="gymLocation"
+                      type="text"
+                      placeholder="City, Country or Address"
+                      value={formData.gymLocation}
                       onChange={handleInputChange}
                       className="pl-10"
                     />
