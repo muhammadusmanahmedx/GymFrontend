@@ -97,27 +97,27 @@ const Expenses = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Expenses</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Expenses</h1>
+            <p className="text-sm text-muted-foreground">
               Track and manage your gym expenses
             </p>
           </div>
-          <Button variant="hero" onClick={() => setIsModalOpen(true)}>
+          <Button variant="hero" onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Add Expense
           </Button>
         </div>
 
         {/* Filter & Total */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -129,19 +129,60 @@ const Expenses = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="rounded-xl border border-primary/20 bg-primary/10 px-6 py-3">
-            <p className="text-sm font-medium text-primary">Total Expenses</p>
-            <p className="text-2xl font-bold text-primary">
+          <div className="rounded-xl border border-primary/20 bg-primary/10 px-4 sm:px-6 py-3">
+            <p className="text-xs sm:text-sm font-medium text-primary">Total Expenses</p>
+            <p className="text-xl sm:text-2xl font-bold text-primary">
               {formatCurrency(totalExpenses)}
             </p>
           </div>
         </div>
 
-        {/* Table */}
+        {/* Mobile Card View */}
+        <div className="space-y-3 sm:hidden">
+          {filteredExpenses.map((expense) => (
+            <motion.div
+              key={expense.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl border border-border bg-card p-4"
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted flex-shrink-0">
+                    <Receipt className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground truncate">{expense.description}</p>
+                    <p className="text-sm text-muted-foreground">{expense.date}</p>
+                  </div>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`text-xs capitalize ${categoryColors[expense.category]}`}
+                >
+                  {expense.category}
+                </Badge>
+              </div>
+              <div className="text-right">
+                <span className="text-lg font-bold text-foreground">
+                  {formatCurrency(expense.amount)}
+                </span>
+              </div>
+            </motion.div>
+          ))}
+          
+          {filteredExpenses.length === 0 && (
+            <div className="py-12 text-center text-muted-foreground text-sm">
+              No expenses found for the selected period.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table View */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-border bg-card overflow-hidden"
+          className="hidden sm:block rounded-xl border border-border bg-card overflow-hidden"
         >
           <div className="overflow-x-auto">
             <Table>
@@ -195,7 +236,7 @@ const Expenses = () => {
 
         {/* Add Expense Modal */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="mx-4 sm:mx-auto sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Add New Expense</DialogTitle>
             </DialogHeader>
@@ -270,15 +311,16 @@ const Expenses = () => {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setIsModalOpen(false)}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
-                <Button type="submit" variant="hero">
+                <Button type="submit" variant="hero" className="w-full sm:w-auto">
                   Add Expense
                 </Button>
               </div>

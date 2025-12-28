@@ -50,24 +50,25 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Dumbbell className="h-5 w-5 text-primary-foreground" />
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-primary">
+              <Dumbbell className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">GymFlow</span>
+            <span className="text-lg sm:text-xl font-bold text-foreground">GymFlow</span>
           </Link>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
-            <Link to="/auth">
+            <Link to="/auth" className="hidden sm:block">
               <Button variant="ghost" size="sm">
                 Login
               </Button>
             </Link>
             <Link to="/auth?mode=register">
               <Button variant="hero" size="sm">
-                Get Started
+                <span className="hidden sm:inline">Get Started</span>
+                <span className="sm:hidden">Start</span>
               </Button>
             </Link>
           </div>
@@ -75,10 +76,10 @@ const Index = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-32 pb-20 lg:pt-40 lg:pb-32">
+      <section className="relative overflow-hidden pt-24 pb-12 sm:pt-32 sm:pb-20 lg:pt-40 lg:pb-32">
         <div className="absolute inset-0 -z-10">
           <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 h-[500px] w-[800px] rounded-full bg-primary/10 blur-[120px]" />
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 h-[300px] sm:h-[500px] w-[400px] sm:w-[800px] rounded-full bg-primary/10 blur-[80px] sm:blur-[120px]" />
         </div>
         
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -92,33 +93,33 @@ const Index = () => {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 }}
-              className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5"
+              className="mx-auto mb-4 sm:mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 sm:px-4 py-1 sm:py-1.5"
             >
-              <Zap className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">
+              <Zap className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
+              <span className="text-xs sm:text-sm font-medium text-primary">
                 Streamline Your Gym Operations
               </span>
             </motion.div>
             
-            <h1 className="mx-auto max-w-4xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+            <h1 className="mx-auto max-w-4xl text-3xl sm:text-4xl font-bold tracking-tight text-foreground lg:text-6xl">
               The Complete{' '}
               <span className="text-primary">Gym Management</span>{' '}
               Solution
             </h1>
             
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-              Manage members, track fees, monitor expenses, and grow your fitness business with our all-in-one platform designed for modern gym owners.
+            <p className="mx-auto mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg text-muted-foreground px-4 sm:px-0">
+              Manage members, track fees, monitor expenses, and grow your fitness business with our all-in-one platform.
             </p>
             
-            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link to="/auth?mode=register">
-                <Button variant="hero" size="xl">
+            <div className="mt-8 sm:mt-10 flex flex-col items-center justify-center gap-3 sm:gap-4 sm:flex-row px-4 sm:px-0">
+              <Link to="/auth?mode=register" className="w-full sm:w-auto">
+                <Button variant="hero" size="lg" className="w-full sm:w-auto">
                   Start Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               </Link>
-              <Link to="/auth">
-                <Button variant="outline" size="xl">
+              <Link to="/auth" className="w-full sm:w-auto">
+                <Button variant="outline" size="lg" className="w-full sm:w-auto">
                   View Demo
                 </Button>
               </Link>
@@ -130,7 +131,7 @@ const Index = () => {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
-            className="mt-20 grid grid-cols-2 gap-8 md:grid-cols-4"
+            className="mt-12 sm:mt-20 grid grid-cols-2 gap-4 sm:gap-8 md:grid-cols-4"
           >
             {[
               { value: '10K+', label: 'Active Gyms' },
@@ -139,10 +140,10 @@ const Index = () => {
               { value: '4.9/5', label: 'User Rating' },
             ].map((stat, index) => (
               <div key={index} className="text-center">
-                <p className="text-3xl font-bold text-foreground lg:text-4xl">
+                <p className="text-2xl sm:text-3xl font-bold text-foreground lg:text-4xl">
                   {stat.value}
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
+                <p className="mt-1 text-xs sm:text-sm text-muted-foreground">{stat.label}</p>
               </div>
             ))}
           </motion.div>
@@ -150,7 +151,7 @@ const Index = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 lg:py-32">
+      <section className="py-12 sm:py-20 lg:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -158,15 +159,15 @@ const Index = () => {
             viewport={{ once: true }}
             className="text-center"
           >
-            <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground sm:text-4xl">
               Everything You Need to Run Your Gym
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+            <p className="mx-auto mt-3 sm:mt-4 max-w-2xl text-sm sm:text-base text-muted-foreground">
               Powerful features designed specifically for gym owners and fitness professionals.
             </p>
           </motion.div>
 
-          <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 sm:mt-16 grid gap-4 sm:gap-8 grid-cols-2 lg:grid-cols-4">
             {features.map((feature, index) => (
               <motion.div
                 key={feature.title}
@@ -174,15 +175,15 @@ const Index = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="group relative rounded-2xl border border-border bg-card p-6 transition-all hover:border-primary/50 hover:shadow-lg"
+                className="group relative rounded-xl sm:rounded-2xl border border-border bg-card p-4 sm:p-6 transition-all hover:border-primary/50 hover:shadow-lg"
               >
-                <div className="mb-4 inline-flex rounded-lg bg-primary/10 p-3">
-                  <feature.icon className="h-6 w-6 text-primary" />
+                <div className="mb-3 sm:mb-4 inline-flex rounded-lg bg-primary/10 p-2 sm:p-3">
+                  <feature.icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                 </div>
-                <h3 className="mb-2 text-lg font-semibold text-foreground">
+                <h3 className="mb-1 sm:mb-2 text-sm sm:text-lg font-semibold text-foreground">
                   {feature.title}
                 </h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   {feature.description}
                 </p>
               </motion.div>
@@ -192,21 +193,21 @@ const Index = () => {
       </section>
 
       {/* Benefits Section */}
-      <section className="py-20 lg:py-32 bg-muted/30">
+      <section className="py-12 sm:py-20 lg:py-32 bg-muted/30">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-12 lg:grid-cols-2 lg:gap-20 items-center">
+          <div className="grid gap-8 sm:gap-12 lg:grid-cols-2 lg:gap-20 items-center">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
-              <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground sm:text-4xl">
                 Why Gym Owners Choose GymFlow
               </h2>
-              <p className="mt-4 text-muted-foreground">
+              <p className="mt-3 sm:mt-4 text-sm sm:text-base text-muted-foreground">
                 Join thousands of fitness professionals who've transformed their business operations with our comprehensive management system.
               </p>
-              <ul className="mt-8 space-y-4">
+              <ul className="mt-6 sm:mt-8 space-y-3 sm:space-y-4">
                 {benefits.map((benefit, index) => (
                   <motion.li
                     key={benefit}
@@ -216,15 +217,15 @@ const Index = () => {
                     transition={{ delay: index * 0.1 }}
                     className="flex items-center gap-3"
                   >
-                    <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
-                    <span className="text-foreground">{benefit}</span>
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
+                    <span className="text-sm sm:text-base text-foreground">{benefit}</span>
                   </motion.li>
                 ))}
               </ul>
-              <Link to="/auth?mode=register" className="mt-8 inline-block">
+              <Link to="/auth?mode=register" className="mt-6 sm:mt-8 inline-block">
                 <Button variant="hero" size="lg">
                   Get Started Today
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               </Link>
             </motion.div>
@@ -233,7 +234,7 @@ const Index = () => {
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="relative"
+              className="relative hidden lg:block"
             >
               <div className="aspect-square rounded-2xl border border-border bg-card p-8 shadow-xl">
                 <div className="h-full rounded-xl bg-muted/50 flex items-center justify-center">
@@ -254,30 +255,30 @@ const Index = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 lg:py-32">
+      <section className="py-12 sm:py-20 lg:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="relative overflow-hidden rounded-3xl bg-primary p-8 lg:p-16 text-center"
+            className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary p-6 sm:p-8 lg:p-16 text-center"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/80" />
             <div className="relative z-10">
-              <h2 className="text-3xl font-bold text-primary-foreground sm:text-4xl">
+              <h2 className="text-2xl sm:text-3xl font-bold text-primary-foreground sm:text-4xl">
                 Ready to Transform Your Gym?
               </h2>
-              <p className="mx-auto mt-4 max-w-2xl text-primary-foreground/80">
+              <p className="mx-auto mt-3 sm:mt-4 max-w-2xl text-sm sm:text-base text-primary-foreground/80">
                 Start your free 14-day trial today. No credit card required.
               </p>
-              <Link to="/auth?mode=register" className="mt-8 inline-block">
+              <Link to="/auth?mode=register" className="mt-6 sm:mt-8 inline-block">
                 <Button 
                   variant="secondary" 
-                  size="xl"
+                  size="lg"
                   className="bg-background text-foreground hover:bg-background/90"
                 >
                   Start Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               </Link>
             </div>
@@ -286,7 +287,7 @@ const Index = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-12">
+      <footer className="border-t border-border py-8 sm:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2">
@@ -295,7 +296,7 @@ const Index = () => {
               </div>
               <span className="font-bold text-foreground">GymFlow</span>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               © 2024 GymFlow. All rights reserved.
             </p>
           </div>

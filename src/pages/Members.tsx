@@ -9,6 +9,7 @@ import {
   Mail,
   Phone,
   Eye,
+  ChevronRight,
 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -140,24 +141,24 @@ const Members = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Members</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Members</h1>
+            <p className="text-sm text-muted-foreground">
               Manage your gym members
             </p>
           </div>
-          <Button variant="hero" onClick={openAddModal}>
+          <Button variant="hero" onClick={openAddModal} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Add Member
           </Button>
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search members..."
@@ -167,7 +168,7 @@ const Members = () => {
             />
           </div>
           <Select value={statusFilter} onValueChange={(v: 'all' | 'active' | 'left') => setStatusFilter(v)}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-full sm:w-[150px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -178,11 +179,75 @@ const Members = () => {
           </Select>
         </div>
 
-        {/* Table */}
+        {/* Mobile Card View */}
+        <div className="space-y-3 sm:hidden">
+          {filteredMembers.map((member) => (
+            <motion.div
+              key={member.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl border border-border bg-card p-4 cursor-pointer active:bg-muted/50"
+              onClick={() => handleRowClick(member.id)}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
+                    <User className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground truncate">{member.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">{member.phone}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="flex-shrink-0"
+                  onClick={(e) => openEditModal(member, e)}
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <div className="flex gap-2">
+                  <Badge
+                    variant="outline"
+                    className={`text-xs ${member.status === 'active' 
+                      ? 'bg-success/10 text-success border-success/20' 
+                      : 'bg-muted text-muted-foreground border-border'
+                    }`}
+                  >
+                    {member.status === 'active' ? 'Active' : 'Left'}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={`text-xs capitalize ${statusColors[member.feeStatus]}`}
+                  >
+                    {member.feeStatus}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <span className="text-sm font-medium text-foreground">
+                    {formatCurrency(settings.monthlyFee)}
+                  </span>
+                  <ChevronRight className="h-4 w-4" />
+                </div>
+              </div>
+            </motion.div>
+          ))}
+          
+          {filteredMembers.length === 0 && (
+            <div className="py-12 text-center text-muted-foreground text-sm">
+              No members found matching your search.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table View */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-border bg-card overflow-hidden"
+          className="hidden sm:block rounded-xl border border-border bg-card overflow-hidden"
         >
           <div className="overflow-x-auto">
             <Table>
@@ -279,7 +344,7 @@ const Members = () => {
 
         {/* Add/Edit Modal */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="mx-4 sm:mx-auto sm:max-w-md">
             <DialogHeader>
               <DialogTitle>
                 {editingMember ? 'Edit Member' : 'Add New Member'}
@@ -342,15 +407,16 @@ const Members = () => {
                 Monthly fee: {formatCurrency(settings.monthlyFee)} (set in Settings)
               </p>
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setIsModalOpen(false)}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
-                <Button type="submit" variant="hero">
+                <Button type="submit" variant="hero" className="w-full sm:w-auto">
                   {editingMember ? 'Update Member' : 'Add Member'}
                 </Button>
               </div>
