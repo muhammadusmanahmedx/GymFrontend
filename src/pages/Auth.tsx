@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/hooks/use-toast';
 import ThemeToggle from '@/components/ThemeToggle';
 
@@ -23,6 +24,7 @@ const Auth = () => {
   });
 
   const { login, register, isAuthenticated } = useAuth();
+  const { refreshAll } = useData();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -50,7 +52,16 @@ const Auth = () => {
           description: 'Welcome to GymFlow.',
         });
       }
-      navigate('/dashboard');
+
+      // preload user-specific data and only navigate on success
+      try {
+        await refreshAll();
+        navigate('/dashboard');
+      } catch (err: any) {
+        const msg = err instanceof Error ? err.message : 'Failed to load user data';
+        toast({ title: 'Error', description: msg, variant: 'destructive' });
+        // keep user on the login/register screen
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
       toast({
@@ -223,15 +234,13 @@ const Auth = () => {
               </div>
             )}
 
-            <Button
-              type="submit"
-              variant="hero"
-              size="lg"
-              className="w-full"
-              disabled={isLoading}
-            >
+            <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading}>
               {isLoading ? (
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                isLogin ? (
+                  'Signing in...'
+                ) : (
+                  'Signing up...'
+                )
               ) : isLogin ? (
                 'Sign in'
               ) : (

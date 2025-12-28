@@ -27,7 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Expense, formatCurrency } from '@/data/mockData';
+import { formatCurrency } from '@/data/mockData';
+import { useData } from '@/contexts/DataContext';
 import * as expensesApi from '@/services/expensesApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -44,7 +45,7 @@ const categoryColors: Record<string, string> = {
 // months will be generated from user's registration month through next month
 
 const Expenses = () => {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const { expenses, refreshAll } = useData();
   const { user } = useAuth();
   const [months, setMonths] = useState<{ value: string; label: string }[]>([]);
   const [selectedMonth, setSelectedMonth] = useState('all');
@@ -52,15 +53,16 @@ const Expenses = () => {
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-    category: 'other' as Expense['category'],
+    category: 'other' as any,
     date: new Date().toISOString().split('T')[0],
   });
 
   const { toast } = useToast();
 
-  const filteredExpenses = expenses.filter((expense) => {
+  const filteredExpenses = (Array.isArray(expenses) ? expenses : []).filter((expense: any) => {
     if (selectedMonth === 'all') return true;
-    return expense.date.startsWith(selectedMonth);
+    const d = expense.date || expense.createdAt || expense.dateString || '';
+    return String(d).startsWith(selectedMonth);
   });
 
   const totalExpenses = filteredExpenses.reduce(
@@ -82,14 +84,11 @@ const Expenses = () => {
           date: formData.date,
         };
         const created: any = await expensesApi.createExpense(payload);
-        const mapped: Expense = {
-          id: created._id || created.id,
-          description: created.description,
-          amount: created.amount,
-          category: created.category,
-          date: new Date(created.date).toISOString().split('T')[0],
-        };
-        setExpenses((prev) => [mapped, ...prev]);
+        try {
+          await refreshAll();
+        } catch (e) {
+          // ignore; UI will update on next refresh
+        }
         setIsModalOpen(false);
         setFormData({ description: '', amount: '', category: 'other', date: new Date().toISOString().split('T')[0] });
         toast({ title: 'Expense added', description: `${formData.description} - ${formatCurrency(parseFloat(formData.amount))} recorded.` });
@@ -100,17 +99,6 @@ const Expenses = () => {
   };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const gymId = (user as any)?.gymId || (user as any)?._id || (user as any)?.id;
-        const data: any = await expensesApi.getExpenses(gymId);
-        if (Array.isArray(data)) {
-          setExpenses(data.map((e: any) => ({ id: e._id || e.id, description: e.description, amount: e.amount, category: e.category, date: new Date(e.date).toISOString().split('T')[0] })));
-        }
-      } catch (err) {
-        // ignore; keep empty state
-      }
-    })();
     // generate month filter range based on user's registration date
     (function generateMonths() {
       const monthsArr: { value: string; label: string }[] = [];
@@ -330,7 +318,7 @@ const Expenses = () => {
                 <Label htmlFor="category">Category</Label>
                 <Select
                   value={formData.category}
-                  onValueChange={(value: Expense['category']) =>
+                  onValueChange={(value: any) =>
                     setFormData((prev) => ({ ...prev, category: value }))
                   }
                 >

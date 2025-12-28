@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Users, CreditCard, AlertTriangle, TrendingDown, Receipt, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import * as expensesApi from '@/services/expensesApi';
+import { useData } from '@/contexts/DataContext';
 import StatsCard from '@/components/dashboard/StatsCard';
 import { getDashboardStats, mockMembers, Member, formatCurrency, defaultSettings } from '@/data/mockData';
 import { useMembers } from '@/contexts/MembersContext';
@@ -34,7 +35,19 @@ const Dashboard = () => {
   });
 
   const stats = getDashboardStats(members, settings.monthlyFee);
-  const [monthlyExpenses, setMonthlyExpenses] = useState<number>(stats.monthlyExpenses || 0);
+  const { expenses } = useData();
+  const monthlyExpenses = useMemo(() => {
+    const arr = Array.isArray(expenses) ? expenses : [];
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return arr
+      .filter((e: any) => {
+        const d = e.date || e.createdAt || e.dateString;
+        if (!d) return false;
+        return String(d).startsWith(ym);
+      })
+      .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+  }, [expenses]);
   // find latest unpaid fee entry for each active member
   const unpaidEntries = members
     .filter((m: any) => m.status === 'active')
@@ -53,29 +66,7 @@ const Dashboard = () => {
     })
     .filter(Boolean) as Array<{ member: any; fee: any }>;
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const data: any = await expensesApi.getExpenses();
-        const arr = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : (data && Array.isArray(data.expenses) ? data.expenses : []));
-        const now = new Date();
-        const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const sum = arr
-          .filter((e: any) => {
-            const d = e.date || e.createdAt || e.dateString;
-            if (!d) return false;
-            return String(d).startsWith(ym);
-          })
-          .reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
-
-        if (mounted) setMonthlyExpenses(sum);
-      } catch (e) {
-        // ignore errors — keep mock/default value
-      }
-    })();
-    return () => { mounted = false; };
-  }, [members]);
+  // monthlyExpenses is derived from `expenses` provided by DataProvider
 
   return (
     <DashboardLayout>

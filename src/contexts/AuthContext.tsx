@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { API } from '@/lib/api';
+import { API, authFetch } from '@/lib/api';
 
 interface User {
   _id?: string;
@@ -53,40 +53,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [user]);
 
   const login = async (email: string, password: string) => {
-    const res = await fetch(`${API}/auth/login`, {
+    const data: any = await authFetch('/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-
-    const text = await res.text();
-    let data: any = null;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      data = null;
-    }
-
-    if (!res.ok) {
-      const msg = data?.message || data?.error || text || res.statusText || 'Login failed';
-      throw new Error(msg);
-    }
 
     const { accessToken, user: u } = data;
     if (!accessToken) throw new Error('No token returned');
     localStorage.setItem('gm_token', accessToken);
+    // write user to localStorage immediately so DataProvider can read gymId
+    try {
+      localStorage.setItem('gm_user', JSON.stringify(u));
+    } catch (e) {
+      // ignore
+    }
     setUser(u);
   };
 
   const register = async (name: string, email: string, password: string, gymName?: string, gymLocation?: string) => {
-    // Call signup endpoint
-    await fetch(`${API}/auth/signup`, {
+    // Call signup endpoint via authFetch to ensure URL normalization
+    await authFetch('/auth/signup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password, gymName, gymLocation }),
-    }).then(async (r) => {
-      if (!r.ok) throw new Error(await r.text());
-      return r.json();
     });
 
     // After signup, login to obtain token

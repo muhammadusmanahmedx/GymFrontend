@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import * as membersApi from '@/services/membersApi';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/hooks/use-toast';
 
 type Member = any;
@@ -16,46 +16,23 @@ type MembersContextType = {
 const MembersContext = createContext<MembersContextType | undefined>(undefined);
 
 export const MembersProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { members, loading, refreshMembers, createMember, updateMember, deleteMember } = useData();
   const { toast } = useToast();
 
+  // surface a small wrapper so existing consumers keep the same API
   const refresh = async () => {
-    setLoading(true);
     try {
-      const data = await membersApi.getMembers();
-      setMembers(Array.isArray(data) ? data : []);
+      await refreshMembers();
     } catch (err: any) {
       toast({ title: 'Error', description: err?.message || 'Failed to load members', variant: 'destructive' });
-    } finally {
-      setLoading(false);
     }
   };
 
-  useEffect(() => { refresh(); }, []);
+  const create = async (payload: any) => createMember(payload);
+  const update = async (id: string, payload: any) => updateMember(id, payload);
+  const remove = async (id: string) => deleteMember(id);
 
-  const create = async (payload: any) => {
-    const m = await membersApi.createMember(payload);
-    setMembers((prev) => [...prev, m]);
-    return m;
-  };
-
-  const update = async (id: string, payload: any) => {
-    const updated = await membersApi.updateMember(id, payload);
-    setMembers((prev) => prev.map((p) => (p._id === id || p.id === id ? updated : p)));
-    return updated;
-  };
-
-  const remove = async (id: string) => {
-    await membersApi.deleteMember(id);
-    setMembers((prev) => prev.filter((p) => p._id !== id && p.id !== id));
-  };
-
-  return (
-    <MembersContext.Provider value={{ members, loading, refresh, create, update, remove }}>
-      {children}
-    </MembersContext.Provider>
-  );
+  return <MembersContext.Provider value={{ members, loading, refresh, create, update, remove }}>{children}</MembersContext.Provider>;
 };
 
 export const useMembers = () => {
