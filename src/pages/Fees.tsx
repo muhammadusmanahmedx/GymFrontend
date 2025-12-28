@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, Check, Search } from 'lucide-react';
+import { CreditCard, Check, Search, ChevronRight } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,33 +71,33 @@ const Fees = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Fee Management</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Fee Management</h1>
+          <p className="text-sm text-muted-foreground">
             Track and manage member fee payments
           </p>
         </div>
 
         {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-success/20 bg-success/10 p-4">
-            <p className="text-sm font-medium text-success">Paid</p>
-            <p className="mt-1 text-2xl font-bold text-success">{paidCount}</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
+          <div className="rounded-xl border border-success/20 bg-success/10 p-3 sm:p-4">
+            <p className="text-xs sm:text-sm font-medium text-success">Paid</p>
+            <p className="mt-1 text-xl sm:text-2xl font-bold text-success">{paidCount}</p>
           </div>
-          <div className="rounded-xl border border-warning/20 bg-warning/10 p-4">
-            <p className="text-sm font-medium text-warning">Pending</p>
-            <p className="mt-1 text-2xl font-bold text-warning">{pendingCount}</p>
+          <div className="rounded-xl border border-warning/20 bg-warning/10 p-3 sm:p-4">
+            <p className="text-xs sm:text-sm font-medium text-warning">Pending</p>
+            <p className="mt-1 text-xl sm:text-2xl font-bold text-warning">{pendingCount}</p>
           </div>
-          <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4">
-            <p className="text-sm font-medium text-destructive">Overdue</p>
-            <p className="mt-1 text-2xl font-bold text-destructive">{overdueCount}</p>
+          <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 sm:p-4">
+            <p className="text-xs sm:text-sm font-medium text-destructive">Overdue</p>
+            <p className="mt-1 text-xl sm:text-2xl font-bold text-destructive">{overdueCount}</p>
           </div>
         </div>
 
         {/* Search */}
-        <div className="relative max-w-sm">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search by member name..."
@@ -107,11 +107,66 @@ const Fees = () => {
           />
         </div>
 
-        {/* Table */}
+        {/* Mobile Card View */}
+        <div className="space-y-3 sm:hidden">
+          {filteredFees.map((fee) => (
+            <motion.div
+              key={fee.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl border border-border bg-card p-4"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
+                    <CreditCard className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground truncate">{fee.memberName}</p>
+                    <p className="text-sm text-muted-foreground">Due: {fee.dueDate}</p>
+                  </div>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`text-xs capitalize ${statusColors[fee.status]}`}
+                >
+                  {fee.status}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-bold text-foreground">
+                  {formatCurrency(fee.amount)}
+                </span>
+                {fee.status !== 'paid' ? (
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={() => handleMarkPaid(fee.id)}
+                  >
+                    <Check className="mr-1 h-4 w-4" />
+                    Mark Paid
+                  </Button>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    Paid: {fee.paidDate}
+                  </span>
+                )}
+              </div>
+            </motion.div>
+          ))}
+          
+          {filteredFees.length === 0 && (
+            <div className="py-12 text-center text-muted-foreground text-sm">
+              No fees found matching your search.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table View */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-border bg-card overflow-hidden"
+          className="hidden sm:block rounded-xl border border-border bg-card overflow-hidden"
         >
           <div className="overflow-x-auto">
             <Table>

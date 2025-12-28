@@ -44,27 +44,27 @@ const StatsCard: React.FC<StatsCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
       className={cn(
-        "relative overflow-hidden rounded-xl border p-6 shadow-sm transition-all hover:shadow-md",
+        "relative overflow-hidden rounded-xl border p-4 sm:p-6 shadow-sm transition-all hover:shadow-md",
         variantStyles[variant]
       )}
     >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-foreground">{value}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">{title}</p>
+          <p className="mt-1 sm:mt-2 text-xl sm:text-3xl font-bold text-foreground truncate">{value}</p>
           {trend && (
             <p
               className={cn(
-                "mt-2 text-sm font-medium",
+                "mt-1 sm:mt-2 text-xs sm:text-sm font-medium",
                 trend.isPositive ? "text-success" : "text-destructive"
               )}
             >
-              {trend.isPositive ? "+" : "-"}{Math.abs(trend.value)}% from last month
+              {trend.isPositive ? "+" : "-"}{Math.abs(trend.value)}%
             </p>
           )}
         </div>
-        <div className={cn("rounded-lg p-3", iconStyles[variant])}>
-          <Icon className="h-6 w-6" />
+        <div className={cn("rounded-lg p-2 sm:p-3 flex-shrink-0", iconStyles[variant])}>
+          <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
         </div>
       </div>
     </motion.div>
