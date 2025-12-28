@@ -59,13 +59,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         {/* Sidebar */}
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 w-64 transform bg-sidebar transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0",
+            "fixed inset-y-0 left-0 z-50 w-64 transform border-r border-sidebar-border bg-sidebar transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0",
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
           <div className="flex h-full flex-col">
             {/* Logo */}
-            <div className="flex h-16 items-center justify-between px-6">
+            <div className="flex h-16 items-center justify-between px-6 border-b border-sidebar-border">
               <Link to="/dashboard" className="flex items-center gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
                   <Dumbbell className="h-5 w-5 text-primary-foreground" />
@@ -77,7 +77,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden text-sidebar-foreground"
+                className="lg:hidden text-sidebar-foreground hover:bg-sidebar-accent"
                 onClick={() => setSidebarOpen(false)}
               >
                 <X className="h-5 w-5" />
@@ -85,7 +85,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             </div>
 
             {/* Gym name */}
-            <div className="mx-4 mb-6 rounded-lg bg-sidebar-accent p-3">
+            <div className="mx-4 my-4 rounded-lg bg-sidebar-accent p-3">
               <p className="text-xs text-sidebar-foreground/60">Managing</p>
               <p className="font-semibold text-sidebar-foreground truncate">
                 {user?.gymName}
