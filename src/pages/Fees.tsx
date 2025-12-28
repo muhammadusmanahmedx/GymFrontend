@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, Check, Search } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { mockFees, Fee } from '@/data/mockData';
+import { mockFees, Fee, formatCurrency, defaultSettings, mockMembers, generateMockFees } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
 
 const statusColors = {
@@ -23,9 +23,23 @@ const statusColors = {
 };
 
 const Fees = () => {
-  const [fees, setFees] = useState<Fee[]>(mockFees);
+  const [settings] = useState(() => {
+    const saved = localStorage.getItem('gymSettings');
+    return saved ? JSON.parse(saved) : defaultSettings;
+  });
+
+  const [fees, setFees] = useState<Fee[]>(() => {
+    const saved = localStorage.getItem('gymFees');
+    if (saved) return JSON.parse(saved);
+    const members = localStorage.getItem('gymMembers');
+    return generateMockFees(members ? JSON.parse(members) : mockMembers, settings.monthlyFee);
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
+
+  useEffect(() => {
+    localStorage.setItem('gymFees', JSON.stringify(fees));
+  }, [fees]);
 
   const filteredFees = fees.filter((fee) =>
     fee.memberName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -47,7 +61,7 @@ const Fees = () => {
     const fee = fees.find((f) => f.id === feeId);
     toast({
       title: 'Fee marked as paid',
-      description: `Payment of $${fee?.amount} from ${fee?.memberName} recorded.`,
+      description: `Payment of ${formatCurrency(fee?.amount || 0)} from ${fee?.memberName} recorded.`,
     });
   };
 
@@ -125,7 +139,7 @@ const Fees = () => {
                       </div>
                     </TableCell>
                     <TableCell className="font-semibold">
-                      ${fee.amount}
+                      {formatCurrency(fee.amount)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {fee.dueDate}

@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Users, CreditCard, AlertTriangle, TrendingDown, Receipt } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import StatsCard from '@/components/dashboard/StatsCard';
-import { getDashboardStats, mockMembers } from '@/data/mockData';
+import { getDashboardStats, mockMembers, Member, formatCurrency, defaultSettings } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -14,8 +16,19 @@ import {
 } from '@/components/ui/table';
 
 const Dashboard = () => {
-  const stats = getDashboardStats();
-  const defaulters = mockMembers.filter(m => m.feeStatus === 'overdue');
+  const navigate = useNavigate();
+  const [members] = useState<Member[]>(() => {
+    const saved = localStorage.getItem('gymMembers');
+    return saved ? JSON.parse(saved) : mockMembers;
+  });
+
+  const [settings] = useState(() => {
+    const saved = localStorage.getItem('gymSettings');
+    return saved ? JSON.parse(saved) : defaultSettings;
+  });
+
+  const stats = getDashboardStats(members, settings.monthlyFee);
+  const defaulters = members.filter(m => m.feeStatus === 'overdue' && m.status === 'active');
 
   return (
     <DashboardLayout>
@@ -42,7 +55,7 @@ const Dashboard = () => {
           />
           <StatsCard
             title="Fees Collected"
-            value={`$${stats.feesCollected.toLocaleString()}`}
+            value={formatCurrency(stats.feesCollected)}
             icon={CreditCard}
             variant="success"
             trend={{ value: 8, isPositive: true }}
@@ -50,14 +63,14 @@ const Dashboard = () => {
           />
           <StatsCard
             title="Pending Fees"
-            value={`$${stats.pendingFees.toLocaleString()}`}
+            value={formatCurrency(stats.pendingFees)}
             icon={TrendingDown}
             variant="warning"
             delay={0.2}
           />
           <StatsCard
             title="Monthly Expenses"
-            value={`$${stats.monthlyExpenses.toLocaleString()}`}
+            value={formatCurrency(stats.monthlyExpenses)}
             icon={Receipt}
             variant="default"
             delay={0.3}
@@ -97,12 +110,15 @@ const Dashboard = () => {
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Amount Due</TableHead>
-                    <TableHead>Membership</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {defaulters.map((member) => (
-                    <TableRow key={member.id}>
+                    <TableRow 
+                      key={member.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/members/${member.id}`)}
+                    >
                       <TableCell className="font-medium">{member.name}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {member.email}
@@ -112,13 +128,8 @@ const Dashboard = () => {
                       </TableCell>
                       <TableCell>
                         <span className="font-semibold text-destructive">
-                          ${member.feeAmount}
+                          {formatCurrency(settings.monthlyFee)}
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {member.membershipType}
-                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))}
