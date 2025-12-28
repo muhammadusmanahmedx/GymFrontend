@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { API } from '@/lib/api';
 
 interface User {
   _id?: string;
@@ -18,7 +19,7 @@ interface AuthContextType {
   updateUser?: (patch: Partial<User>) => void;
 }
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// `API` is imported from `src/lib/api.ts`
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
