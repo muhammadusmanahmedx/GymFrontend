@@ -9,8 +9,10 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Members from "./pages/Members";
+import MemberDetails from "./pages/MemberDetails";
 import Fees from "./pages/Fees";
 import Expenses from "./pages/Expenses";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,8 +30,10 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/members" element={<Members />} />
+              <Route path="/members/:id" element={<MemberDetails />} />
               <Route path="/fees" element={<Fees />} />
               <Route path="/expenses" element={<Expenses />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

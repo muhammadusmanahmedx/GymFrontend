@@ -10,6 +10,7 @@ import {
   Dumbbell,
   Menu,
   X,
+  Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +27,7 @@ const navigation = [
   { name: 'Members', href: '/members', icon: Users },
   { name: 'Fees', href: '/fees', icon: CreditCard },
   { name: 'Expenses', href: '/expenses', icon: Receipt },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {

@@ -27,13 +27,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { mockExpenses, Expense } from '@/data/mockData';
+import { mockExpenses, Expense, formatCurrency } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
 
 const categoryColors: Record<string, string> = {
   equipment: 'bg-primary/10 text-primary border-primary/20',
-  utilities: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  rent: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+  utilities: 'bg-muted text-muted-foreground border-border',
+  rent: 'bg-muted text-muted-foreground border-border',
   salary: 'bg-success/10 text-success border-success/20',
   maintenance: 'bg-warning/10 text-warning border-warning/20',
   other: 'bg-muted text-muted-foreground border-border',
@@ -91,7 +91,7 @@ const Expenses = () => {
 
     toast({
       title: 'Expense added',
-      description: `${formData.description} - $${formData.amount} recorded.`,
+      description: `${formData.description} - ${formatCurrency(parseFloat(formData.amount))} recorded.`,
     });
   };
 
@@ -132,7 +132,7 @@ const Expenses = () => {
           <div className="rounded-xl border border-primary/20 bg-primary/10 px-6 py-3">
             <p className="text-sm font-medium text-primary">Total Expenses</p>
             <p className="text-2xl font-bold text-primary">
-              ${totalExpenses.toLocaleString()}
+              {formatCurrency(totalExpenses)}
             </p>
           </div>
         </div>
@@ -178,7 +178,7 @@ const Expenses = () => {
                       {expense.date}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
-                      ${expense.amount.toLocaleString()}
+                      {formatCurrency(expense.amount)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -218,14 +218,14 @@ const Expenses = () => {
               </div>
 
               <div>
-                <Label htmlFor="amount">Amount ($)</Label>
+                <Label htmlFor="amount">Amount (Rs)</Label>
                 <Input
                   id="amount"
                   type="number"
                   required
                   min="0"
-                  step="0.01"
-                  placeholder="0.00"
+                  step="1"
+                  placeholder="0"
                   value={formData.amount}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, amount: e.target.value }))
