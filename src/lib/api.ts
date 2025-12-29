@@ -35,6 +35,7 @@ export async function authFetch(path: string, options: RequestInit = {}) {
       } catch (e) {
         // ignore
       }
+      // jdh
       // Redirecting to the auth screen so the app can re-authenticate the user
       if (typeof window !== 'undefined') {
         window.location.href = '/auth';

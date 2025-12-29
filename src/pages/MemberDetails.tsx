@@ -307,7 +307,7 @@ const MemberDetails = () => {
               <div className="rounded-lg border border-border bg-muted/30 p-3 sm:p-4 text-center">
                 <p className="text-xs sm:text-sm text-muted-foreground">Monthly Fee</p>
                 <p className="text-base sm:text-xl font-bold text-foreground">
-                  {formatCurrency((member && (member as any).feeHistory && (member as any).feeHistory[0]?.amount) || settings.monthlyFee)}
+                  {formatCurrency((settings && typeof settings.monthlyFee === 'number' && settings.monthlyFee > 0) ? settings.monthlyFee : ((member && (member as any).feeHistory && (member as any).feeHistory[0]?.amount) || 0))}
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-muted/30 p-3 sm:p-4 text-center">

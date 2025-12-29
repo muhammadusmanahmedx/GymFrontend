@@ -59,11 +59,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         {/* Sidebar */}
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 w-64 transform border-r border-sidebar-border bg-sidebar transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0",
+            "fixed inset-y-0 left-0 z-50 w-64 transform border-r border-sidebar-border bg-sidebar transition-transform duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0",
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
-          <div className="flex h-full flex-col">
+          <div className="flex h-full flex-col overflow-y-auto">
             {/* Logo */}
             <div className="flex h-16 items-center justify-between px-6 border-b border-sidebar-border">
               <Link to="/dashboard" className="flex items-center gap-2">
@@ -71,7 +71,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   <Dumbbell className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <span className="text-lg font-bold text-sidebar-foreground">
-                  GymFlow
+                  GymManager
                 </span>
               </Link>
               <Button

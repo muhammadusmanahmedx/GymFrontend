@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Users, CreditCard, AlertTriangle, TrendingDown, Receipt, ChevronRight } from 'lucide-react';
+import { Users, CreditCard, AlertTriangle, TrendingDown, Receipt, ChevronRight, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import * as expensesApi from '@/services/expensesApi';
@@ -18,6 +18,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const statusColors = {
   paid: 'bg-success/10 text-success border-success/20',
@@ -65,6 +73,23 @@ const Dashboard = () => {
       return latestUnpaid ? { member: m, fee: latestUnpaid } : null;
     })
     .filter(Boolean) as Array<{ member: any; fee: any }>;
+
+  // UI filters for unpaid table
+  const [searchQuery, setSearchQuery] = useState('');
+  const [monthFilter, setMonthFilter] = useState('all');
+
+  const filteredUnpaid = unpaidEntries.filter(({ member, fee }) => {
+    // search by name, email, phone, or month
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      const hay = `${member.name} ${member.email || ''} ${member.phone || ''} ${fee.month || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (monthFilter !== 'all') {
+      if ((fee.month || (fee.dueDate ? fee.dueDate.slice(0,7) : '')) !== monthFilter) return false;
+    }
+    return true;
+  });
 
   // monthlyExpenses is derived from `expenses` provided by DataProvider
 
@@ -138,16 +163,40 @@ const Dashboard = () => {
                 Latest unpaid fee per active member
               </p>
             </div>
-            <Badge variant="warning" className="text-xs">
-              {unpaidEntries.length}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <div className="relative w-full sm:w-56">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search name, phone, month..."
+                  value={searchQuery}
+                  onChange={(e: any) => setSearchQuery(e.target.value)}
+                  className="pl-10 w-full"
+                />
+              </div>
+              <div className="w-44 hidden sm:block">
+                <Select value={monthFilter} onValueChange={(v: any) => setMonthFilter(v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All months" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All months</SelectItem>
+                    {Array.from(new Set(unpaidEntries.map(u => u.fee.month || (u.fee.dueDate ? u.fee.dueDate.slice(0,7) : '')))).filter(Boolean).map(m => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Badge variant="warning" className="text-xs">
+                {filteredUnpaid.length}
+              </Badge>
+            </div>
           </div>
 
-          {unpaidEntries.length > 0 ? (
+          {filteredUnpaid.length > 0 ? (
             <>
               {/* Mobile Card View */}
               <div className="space-y-3 sm:hidden">
-                {unpaidEntries.map(({ member, fee }) => (
+                {filteredUnpaid.map(({ member, fee }) => (
                   <div
                     key={member._id || member.id}
                     className="rounded-lg border border-border bg-muted/30 p-3 cursor-pointer"
@@ -183,11 +232,11 @@ const Dashboard = () => {
                       <TableHead>Email</TableHead>
                       <TableHead>Phone</TableHead>
                       <TableHead>Month</TableHead>
-                      <TableHead>Amount Due</TableHead>
+                      <TableHead className="text-right">Amount Due</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {unpaidEntries.map(({ member, fee }) => (
+                    {filteredUnpaid.map(({ member, fee }) => (
                       <TableRow 
                         key={member._id || member.id}
                         className="cursor-pointer hover:bg-muted/50"
@@ -197,7 +246,7 @@ const Dashboard = () => {
                         <TableCell className="text-muted-foreground">{member.email}</TableCell>
                         <TableCell className="text-muted-foreground">{member.phone}</TableCell>
                         <TableCell>{fee.month || (fee.dueDate ? fee.dueDate.slice(0,10) : '-')}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-right">
                           <span className="font-semibold text-foreground">{formatCurrency(fee.amount || settings.monthlyFee)}</span>
                         </TableCell>
                       </TableRow>
