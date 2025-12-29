@@ -287,6 +287,10 @@ const MemberDetails = () => {
                     <span className="truncate">{member.email}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <User className="h-4 w-4 flex-shrink-0" />
+                    <span>Gender: {(member as any).gender || '-'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Phone className="h-4 w-4 flex-shrink-0" />
                     <span>{member.phone}</span>
                   </div>

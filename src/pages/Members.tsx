@@ -53,12 +53,14 @@ const Members = () => {
   // local state for editing UI
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'left' | 'paid' | 'unpaid'>('all');
+  const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
+    gender: 'male',
   });
 
   const [settings] = useState(() => {
@@ -85,7 +87,12 @@ const Members = () => {
       return true;
     })();
 
-    return matchesSearch && matchesStatusOrFee;
+    const matchesGender = (() => {
+      if (genderFilter === 'all') return true;
+      return (member as any).gender === genderFilter;
+    })();
+
+    return matchesSearch && matchesStatusOrFee && matchesGender;
   });
 
   const openAddModal = () => {
@@ -105,6 +112,7 @@ const Members = () => {
       name: member.name,
       email: member.email,
       phone: member.phone,
+      gender: (member as any).gender || 'male',
     });
     setIsModalOpen(true);
   };
@@ -170,6 +178,16 @@ const Members = () => {
               <SelectItem value="left">Left Members</SelectItem>
               <SelectItem value="paid">Members with Paid Fees</SelectItem>
               <SelectItem value="unpaid">Members with Pending / Unpaid Fees</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={genderFilter} onValueChange={(v: 'all' | 'male' | 'female') => setGenderFilter(v)}>
+            <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Genders</SelectItem>
+              <SelectItem value="male">Male</SelectItem>
+              <SelectItem value="female">Female</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -401,6 +419,21 @@ const Members = () => {
                     }
                     className="pl-10"
                   />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="gender">Gender</Label>
+                <div className="mt-1">
+                  <Select value={formData.gender} onValueChange={(v: any) => setFormData((prev) => ({ ...prev, gender: v }))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

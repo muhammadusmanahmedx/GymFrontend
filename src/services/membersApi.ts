@@ -5,6 +5,7 @@ export type MemberCreate = {
   email: string;
   phone: string;
   gymId?: string;
+  gender?: 'male' | 'female';
 };
 
 export async function getMembers(gymId?: string) {

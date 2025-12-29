@@ -4,6 +4,7 @@ export interface Member {
   email: string;
   phone: string;
   joinDate: string;
+  gender?: 'male' | 'female';
   status: 'active' | 'left';
   feeStatus: 'paid' | 'pending' | 'overdue';
   lastPayment?: string;
@@ -45,6 +46,7 @@ export const mockMembers: Member[] = [
     email: 'ali@email.com',
     phone: '+92 300 1234567',
     joinDate: '2024-01-15',
+    gender: 'male',
     status: 'active',
     feeStatus: 'paid',
     lastPayment: '2024-12-01',
@@ -55,6 +57,7 @@ export const mockMembers: Member[] = [
     email: 'fatima@email.com',
     phone: '+92 301 2345678',
     joinDate: '2024-02-20',
+    gender: 'female',
     status: 'active',
     feeStatus: 'paid',
     lastPayment: '2024-06-01',
@@ -65,6 +68,7 @@ export const mockMembers: Member[] = [
     email: 'ahmed@email.com',
     phone: '+92 302 3456789',
     joinDate: '2024-03-10',
+    gender: 'male',
     status: 'active',
     feeStatus: 'pending',
   },
@@ -74,6 +78,7 @@ export const mockMembers: Member[] = [
     email: 'ayesha@email.com',
     phone: '+92 303 4567890',
     joinDate: '2024-04-05',
+    gender: 'female',
     status: 'active',
     feeStatus: 'overdue',
   },
@@ -83,6 +88,7 @@ export const mockMembers: Member[] = [
     email: 'usman@email.com',
     phone: '+92 304 5678901',
     joinDate: '2024-05-12',
+    gender: 'male',
     status: 'active',
     feeStatus: 'paid',
     lastPayment: '2024-12-05',
@@ -93,6 +99,7 @@ export const mockMembers: Member[] = [
     email: 'sana@email.com',
     phone: '+92 305 6789012',
     joinDate: '2024-06-01',
+    gender: 'female',
     status: 'active',
     feeStatus: 'overdue',
   },
@@ -102,6 +109,7 @@ export const mockMembers: Member[] = [
     email: 'bilal@email.com',
     phone: '+92 306 7890123',
     joinDate: '2024-07-18',
+    gender: 'male',
     status: 'left',
     feeStatus: 'paid',
     lastPayment: '2024-07-18',
@@ -112,6 +120,7 @@ export const mockMembers: Member[] = [
     email: 'zainab@email.com',
     phone: '+92 307 8901234',
     joinDate: '2024-08-22',
+    gender: 'female',
     status: 'active',
     feeStatus: 'pending',
   },
