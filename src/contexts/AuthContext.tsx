@@ -68,6 +68,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // ignore
     }
     setUser(u);
+    return u;
   };
 
   const register = async (name: string, email: string, password: string, gymName?: string, gymLocation?: string) => {

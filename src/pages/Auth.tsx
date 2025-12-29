@@ -28,25 +28,24 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
-    }
-  }, [isAuthenticated, navigate]);
+  // removed automatic redirect on auth state; navigation handled after data preload
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
+      let loggedUser: any = null;
       if (isLogin) {
-        await login(formData.email, formData.password);
+        loggedUser = await login(formData.email, formData.password);
         toast({
           title: 'Welcome back!',
           description: 'You have successfully logged in.',
         });
       } else {
         await register(formData.name, formData.email, formData.password, formData.gymName, formData.gymLocation);
+        // after register, login() was called inside register so read stored user
+        try { loggedUser = JSON.parse(localStorage.getItem('gm_user') || 'null'); } catch { loggedUser = null; }
         toast({
           title: 'Account created!',
           description: 'Welcome to GymFlow.',
@@ -56,7 +55,10 @@ const Auth = () => {
       // preload user-specific data and only navigate on success
       try {
         await refreshAll();
-        navigate('/dashboard');
+        // route superbadmin users to access control
+        const role = loggedUser?.role || undefined;
+        if (role === 'superbadmin') navigate('/access-control');
+        else navigate('/dashboard');
       } catch (err: any) {
         const msg = err instanceof Error ? err.message : 'Failed to load user data';
         toast({ title: 'Error', description: msg, variant: 'destructive' });

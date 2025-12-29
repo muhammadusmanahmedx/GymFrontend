@@ -8,18 +8,23 @@ export async function authFetch(path: string, options: RequestInit = {}) {
 
   const base = API.replace(/\/$/, '');
   const url = path.startsWith('/') ? `${base}${path}` : `${base}/${path}`;
+  console.debug('[authFetch] Request ->', url, options);
 
   let res: Response;
   try {
     res = await fetch(url, { ...options, headers });
   } catch (err: any) {
     // network-level error (CORS, DNS, refused connection)
+    console.error('[authFetch] Network error:', err);
     throw new Error(`Network error: ${err?.message || String(err)}`);
   }
 
   const text = await res.text();
   let body: any = null;
   try { body = text ? JSON.parse(text) : null; } catch { body = null; }
+
+  console.debug('[authFetch] Response <-', { url, status: res.status, body: body ?? text });
+
   if (!res.ok) {
     const msg = body?.message || body?.error || text || res.statusText || 'Request failed';
     throw new Error(msg);

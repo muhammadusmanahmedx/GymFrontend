@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import * as membersApi from '@/services/membersApi';
 import * as feesApi from '@/services/feesApi';
 import * as expensesApi from '@/services/expensesApi';
@@ -22,30 +23,11 @@ const FEES_KEY = 'gm_cache_fees';
 const EXPENSES_KEY = 'gm_cache_expenses';
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [members, setMembers] = useState<any[]>(() => {
-    try {
-      const raw = localStorage.getItem(MEMBERS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-  const [fees, setFees] = useState<any[]>(() => {
-    try {
-      const raw = localStorage.getItem(FEES_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-  const [expenses, setExpenses] = useState<any[]>(() => {
-    try {
-      const raw = localStorage.getItem(EXPENSES_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const { isAuthenticated } = useAuth();
+
+  const [members, setMembers] = useState<any[]>([]);
+  const [fees, setFees] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(false);
 
@@ -91,10 +73,40 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
-    // background refresh after mount
-    refreshAll();
+    // Only load cached data and refresh when user is authenticated
+    if (isAuthenticated) {
+      try {
+        const rawM = localStorage.getItem(MEMBERS_KEY);
+        setMembers(rawM ? JSON.parse(rawM) : []);
+      } catch (e) {
+        setMembers([]);
+      }
+      try {
+        const rawF = localStorage.getItem(FEES_KEY);
+        setFees(rawF ? JSON.parse(rawF) : []);
+      } catch (e) {
+        setFees([]);
+      }
+      try {
+        const rawEx = localStorage.getItem(EXPENSES_KEY);
+        setExpenses(rawEx ? JSON.parse(rawEx) : []);
+      } catch (e) {
+        setExpenses([]);
+      }
+
+      // trigger background refresh
+      refreshAll();
+    } else {
+      // clear any cached data if not authenticated
+      setMembers([]);
+      setFees([]);
+      setExpenses([]);
+      persist(MEMBERS_KEY, []);
+      persist(FEES_KEY, []);
+      persist(EXPENSES_KEY, []);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAuthenticated]);
 
   const createMember = async (payload: any) => {
     const created = await membersApi.createMember(payload);
