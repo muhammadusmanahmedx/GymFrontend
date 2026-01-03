@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Users, CreditCard, AlertTriangle, TrendingDown, Receipt, ChevronRight, Search } from 'lucide-react';
@@ -8,6 +8,7 @@ import * as expensesApi from '@/services/expensesApi';
 import { useData } from '@/contexts/DataContext';
 import StatsCard from '@/components/dashboard/StatsCard';
 import { getDashboardStats, mockMembers, Member, formatCurrency, defaultSettings } from '@/data/mockData';
+import { authFetch } from '@/lib/api';
 import { useMembers } from '@/contexts/MembersContext';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -35,12 +36,48 @@ const statusColors = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { members } = useMembers();
+  const { members, refresh } = useMembers();
 
-  const [settings] = useState(() => {
+  const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('gymSettings');
     return saved ? JSON.parse(saved) : defaultSettings;
   });
+  const { user } = useAuth();
+
+  // load settings from backend when user is present
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!user?._id && !user?.id) return;
+        const userId = user._id || user.id;
+        const res: any = await authFetch(`/settings/${encodeURIComponent(userId)}`);
+        if (res && typeof res.monthlyFee === 'number') {
+          setSettings((prev) => ({ ...prev, monthlyFee: res.monthlyFee }));
+          try { localStorage.setItem('gymSettings', JSON.stringify({ ...settings, monthlyFee: res.monthlyFee })); } catch (e) { /* ignore */ }
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, [user]);
+
+  // listen for settings updates (emitted by Settings page) and apply immediately
+  useEffect(() => {
+    const handler = (evt: Event) => {
+      try {
+        const ce = evt as CustomEvent;
+        const newSettings = ce?.detail || (localStorage.getItem('gymSettings') ? JSON.parse(localStorage.getItem('gymSettings') as string) : null);
+        if (newSettings && typeof newSettings.monthlyFee === 'number') {
+          setSettings((prev) => ({ ...prev, monthlyFee: newSettings.monthlyFee }));
+          try { if (typeof refresh === 'function') refresh(); } catch (e) { /* ignore refresh errors */ }
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    window.addEventListener('gymSettingsUpdated', handler as EventListener);
+    return () => window.removeEventListener('gymSettingsUpdated', handler as EventListener);
+  }, []);
 
   const stats = getDashboardStats(members, settings.monthlyFee);
   const { expenses } = useData();
@@ -77,6 +114,7 @@ const Dashboard = () => {
   // UI filters for unpaid table
   const [searchQuery, setSearchQuery] = useState('');
   const [monthFilter, setMonthFilter] = useState('all');
+  const [feeStatusFilter, setFeeStatusFilter] = useState('pending');
 
   const filteredUnpaid = unpaidEntries.filter(({ member, fee }) => {
     // search by name, email, phone, or month
@@ -84,6 +122,10 @@ const Dashboard = () => {
     if (q) {
       const hay = `${member.name} ${member.email || ''} ${member.phone || ''} ${fee.month || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
+    }
+    // filter by member-level feeStatus if selected
+    if (feeStatusFilter !== 'all') {
+      if ((member.feeStatus || 'pending') !== feeStatusFilter) return false;
     }
     if (monthFilter !== 'all') {
       if ((fee.month || (fee.dueDate ? fee.dueDate.slice(0,7) : '')) !== monthFilter) return false;
@@ -186,6 +228,19 @@ const Dashboard = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="w-40 hidden sm:block">
+                <Select value={feeStatusFilter} onValueChange={(v: any) => setFeeStatusFilter(v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Badge variant="warning" className="text-xs">
                 {filteredUnpaid.length}
               </Badge>
@@ -207,8 +262,8 @@ const Dashboard = () => {
                         <p className="font-medium text-foreground truncate">{member.name}</p>
                         <p className="text-sm text-muted-foreground truncate">{member.phone}</p>
                       </div>
-                      <Badge variant="outline" className={`text-xs capitalize ${statusColors[fee.status]}`}>
-                        {fee.status}
+                      <Badge variant="outline" className={`text-xs capitalize ${statusColors[member.feeStatus || fee.status]}`}>
+                        {member.feeStatus || fee.status}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between text-sm">
@@ -228,11 +283,14 @@ const Dashboard = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Month</TableHead>
-                      <TableHead className="text-right">Amount Due</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Month</TableHead>
+                        <TableHead>Fee Status</TableHead>
+                        <TableHead>Last Payment</TableHead>
+                        <TableHead className="text-right">Amount Due</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -246,8 +304,17 @@ const Dashboard = () => {
                         <TableCell className="text-muted-foreground">{member.email}</TableCell>
                         <TableCell className="text-muted-foreground">{member.phone}</TableCell>
                         <TableCell>{fee.month || (fee.dueDate ? fee.dueDate.slice(0,10) : '-')}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`text-xs capitalize ${statusColors[member.feeStatus || fee.status]}`}>
+                            {member.feeStatus || fee.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{member.lastPayment ? String(member.lastPayment).slice(0,10) : '-'}</TableCell>
                         <TableCell className="text-right">
                           <span className="font-semibold text-foreground">{formatCurrency(fee.amount || settings.monthlyFee)}</span>
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          <ChevronRight className="h-4 w-4 inline" />
                         </TableCell>
                       </TableRow>
                     ))}

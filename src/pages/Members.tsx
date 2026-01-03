@@ -38,6 +38,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { mockMembers, Member, formatCurrency, defaultSettings } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { authFetch } from '@/lib/api';
 import { useMembers } from '@/contexts/MembersContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -63,10 +65,45 @@ const Members = () => {
     gender: 'male',
   });
 
-  const [settings] = useState(() => {
+  const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('gymSettings');
     return saved ? JSON.parse(saved) : defaultSettings;
   });
+  const { user } = useAuth();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!user?._id && !user?.id) return;
+        const userId = user._id || user.id;
+        const res: any = await authFetch(`/settings/${encodeURIComponent(userId)}`);
+        if (res && typeof res.monthlyFee === 'number') {
+          setSettings((prev) => ({ ...prev, monthlyFee: res.monthlyFee }));
+          try { localStorage.setItem('gymSettings', JSON.stringify({ ...settings, monthlyFee: res.monthlyFee })); } catch (e) { /* ignore */ }
+        }
+      } catch (e) {
+        // ignore and fall back to local/default
+      }
+    })();
+  }, [user]);
+
+  // listen for settings updates and refresh members UI
+  useEffect(() => {
+    const handler = (evt: Event) => {
+      try {
+        const ce = evt as CustomEvent;
+        const newSettings = ce?.detail || (localStorage.getItem('gymSettings') ? JSON.parse(localStorage.getItem('gymSettings') as string) : null);
+        if (newSettings && typeof newSettings.monthlyFee === 'number') {
+          setSettings((prev) => ({ ...prev, monthlyFee: newSettings.monthlyFee }));
+          try { if (typeof refresh === 'function') refresh(); } catch (e) { /* ignore */ }
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    window.addEventListener('gymSettingsUpdated', handler as EventListener);
+    return () => window.removeEventListener('gymSettingsUpdated', handler as EventListener);
+  }, [refresh]);
 
   const { toast } = useToast();
 

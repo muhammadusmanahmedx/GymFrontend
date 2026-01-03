@@ -48,6 +48,12 @@ const Settings = () => {
           title: 'Settings saved',
           description: 'Your gym settings have been updated successfully.',
         });
+        // notify other parts of the app that settings changed
+        try {
+          window.dispatchEvent(new CustomEvent('gymSettingsUpdated', { detail: settings }));
+        } catch (e) {
+          // ignore if dispatch fails
+        }
       } catch (err: any) {
         toast({ title: 'Error', description: err?.message || 'Failed to save settings', variant: 'destructive' });
       }

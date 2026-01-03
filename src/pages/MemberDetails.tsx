@@ -23,9 +23,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { mockFees, Member, Fee, formatCurrency, defaultSettings } from '@/data/mockData';
+import { Member, Fee, formatCurrency, defaultSettings } from '@/data/mockData';
 import * as feesApi from '@/services/feesApi';
 import * as membersApi from '@/services/membersApi';
+import { useAuth } from '@/contexts/AuthContext';
+import { authFetch } from '@/lib/api';
 import { useMembers } from '@/contexts/MembersContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -45,13 +47,14 @@ const MemberDetails = () => {
   const [member, setMember] = useState<Member | null>(null);
   const [fees, setFees] = useState<Fee[]>(() => {
     const saved = localStorage.getItem('gymFees');
-    return saved ? JSON.parse(saved) : mockFees;
+    return saved ? JSON.parse(saved) : [];
   });
 
-  const [settings] = useState(() => {
+  const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('gymSettings');
     return saved ? JSON.parse(saved) : defaultSettings;
   });
+  const { user } = useAuth();
 
   const memberFees = fees.filter((f) => f.memberId === id);
   // prefer fees from API; if none, fall back to member.feeHistory
@@ -82,13 +85,37 @@ const MemberDetails = () => {
       try {
         const data = await membersApi.getMember(id);
         if (mounted) setMember(data);
-        // load fees for this member from backend
+        // load fees for this member from backend - these have the correct Fee._id
         try {
           const feeData: any = await feesApi.getFees(id);
-          if (Array.isArray(feeData)) {
-            setFees(feeData.map((f: any) => ({ id: f._id || f.id, memberId: String(f.memberId), amount: f.amount, month: f.month, dueDate: new Date(f.dueDate).toISOString().split('T')[0], status: f.status, paidDate: f.paidDate ? new Date(f.paidDate).toISOString().split('T')[0] : undefined })));
+          console.log('Loaded fees from API:', feeData);
+          if (Array.isArray(feeData) && feeData.length > 0) {
+            setFees(feeData.map((f: any) => ({ 
+              id: f._id || f.id,  // Use Fee._id from backend
+              memberId: String(f.memberId), 
+              amount: f.amount, 
+              month: f.month, 
+              dueDate: f.dueDate ? new Date(f.dueDate).toISOString().split('T')[0] : undefined, 
+              status: f.status, 
+              paidDate: f.paidDate ? new Date(f.paidDate).toISOString().split('T')[0] : undefined 
+            })));
+          } else {
+            // If no fees from API, create fee from member.feeHistory but trigger backend to create Fee docs
+            if (data && Array.isArray((data as any).feeHistory) && (data as any).feeHistory.length > 0) {
+              // Map feeHistory but mark that we need to use backend IDs
+              setFees((data as any).feeHistory.map((f: any) => ({
+                id: f._id || f.id,
+                memberId: id || String(f.memberId || id),
+                amount: f.amount,
+                month: f.month,
+                dueDate: f.dueDate ? new Date(f.dueDate).toISOString().split('T')[0] : undefined,
+                status: f.status,
+                paidDate: f.paidDate ? new Date(f.paidDate).toISOString().split('T')[0] : undefined,
+              })));
+            }
           }
         } catch (e) {
+          console.log('Error loading fees:', e);
           // ignore fees load errors
         }
       } catch (err: any) {
@@ -98,6 +125,64 @@ const MemberDetails = () => {
     })();
     return () => { mounted = false; };
   }, [id, navigate]);
+
+  // load authoritative settings from backend (if available)
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!user?._id && !user?.id) return;
+        const userId = user._id || user.id;
+        const res: any = await authFetch(`/settings/${encodeURIComponent(userId)}`);
+        if (res && typeof res.monthlyFee === 'number') {
+          setSettings((prev) => ({ ...prev, monthlyFee: res.monthlyFee }));
+          try { localStorage.setItem('gymSettings', JSON.stringify({ ...settings, monthlyFee: res.monthlyFee })); } catch (e) { /* ignore */ }
+        }
+      } catch (e) {
+        // ignore — fallback to local/default settings
+      }
+    })();
+  }, [user]);
+
+  // update settings and re-fetch fees/member when settings change
+  useEffect(() => {
+    const handler = (evt: Event) => {
+      (async () => {
+        try {
+          const ce = evt as CustomEvent;
+          const newSettings = ce?.detail || (localStorage.getItem('gymSettings') ? JSON.parse(localStorage.getItem('gymSettings') as string) : null);
+          if (newSettings && typeof newSettings.monthlyFee === 'number') {
+            setSettings((prev) => ({ ...prev, monthlyFee: newSettings.monthlyFee }));
+            try { localStorage.setItem('gymSettings', JSON.stringify({ ...settings, monthlyFee: newSettings.monthlyFee })); } catch (e) { /* ignore */ }
+          }
+
+          // re-fetch fees for this member (if we have an id)
+          if (id) {
+            try {
+              const feeData: any = await feesApi.getFees(id);
+              const arr = Array.isArray(feeData) ? feeData : (feeData && Array.isArray(feeData.data) ? feeData.data : (feeData && Array.isArray(feeData.fees) ? feeData.fees : []));
+              if (Array.isArray(arr)) {
+                setFees(arr.map((f: any) => ({ id: f._id || f.id, memberId: String(f.memberId), amount: f.amount, month: f.month, dueDate: f.dueDate ? new Date(f.dueDate).toISOString().split('T')[0] : undefined, status: f.status, paidDate: f.paidDate ? new Date(f.paidDate).toISOString().split('T')[0] : undefined })));
+              }
+            } catch (e) {
+              // ignore
+            }
+
+            // re-fetch member summary
+            try {
+              const updatedMember = await membersApi.getMember(id);
+              if (updatedMember) setMember(updatedMember as any);
+            } catch (e) {
+              // ignore
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      })();
+    };
+    window.addEventListener('gymSettingsUpdated', handler as EventListener);
+    return () => window.removeEventListener('gymSettingsUpdated', handler as EventListener);
+  }, [id, settings]);
 
   if (!member) {
     return (
@@ -132,6 +217,7 @@ const MemberDetails = () => {
   };
 
   const handleMarkFeePaid = (feeId: string) => {
+    console.log('Marking fee paid with ID:', feeId);
     // call backend to mark fee paid and create next month's fee if applicable
     (async () => {
       const now = new Date();
@@ -180,10 +266,11 @@ const MemberDetails = () => {
           setFees(arr.map((f: any) => ({ id: f._id || f.id, memberId: String(f.memberId), amount: f.amount, month: f.month, dueDate: f.dueDate ? new Date(f.dueDate).toISOString().split('T')[0] : undefined, status: f.status, paidDate: f.paidDate ? new Date(f.paidDate).toISOString().split('T')[0] : undefined })));
         }
 
-        // update member summary fields from server
+        // update member summary fields from server and re-fetch member to see updated feeHistory
         if (member) {
           try {
-            const updatedMember = await membersApi.updateMember(member._id || member.id, { feeStatus: 'paid', lastPayment: nowStr.split('T')[0] });
+            // Re-fetch the member to get updated feeHistory from server
+            const updatedMember = await membersApi.getMember(id);
             setMember(updatedMember as any);
           } catch (e) {
             // ignore

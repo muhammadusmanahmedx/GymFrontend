@@ -14,6 +14,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { mockFees, Fee, formatCurrency, defaultSettings, mockMembers, generateMockFees } from '@/data/mockData';
+import * as feesApi from '@/services/feesApi';
+import { useAuth } from '@/contexts/AuthContext';
+import { authFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 const statusColors = {
@@ -23,17 +26,86 @@ const statusColors = {
 };
 
 const Fees = () => {
-  const [settings] = useState(() => {
+  const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('gymSettings');
     return saved ? JSON.parse(saved) : defaultSettings;
   });
+  const { user } = useAuth();
 
   const [fees, setFees] = useState<Fee[]>(() => {
     const saved = localStorage.getItem('gymFees');
-    if (saved) return JSON.parse(saved);
-    const members = localStorage.getItem('gymMembers');
-    return generateMockFees(members ? JSON.parse(members) : mockMembers, settings.monthlyFee);
+    return saved ? JSON.parse(saved) : [];
   });
+
+  // load authoritative settings
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!user?._id && !user?.id) return;
+        const userId = user._id || user.id;
+        const res: any = await authFetch(`/settings/${encodeURIComponent(userId)}`);
+        if (res && typeof res.monthlyFee === 'number') {
+          setSettings((prev) => ({ ...prev, monthlyFee: res.monthlyFee }));
+          try { localStorage.setItem('gymSettings', JSON.stringify({ ...settings, monthlyFee: res.monthlyFee })); } catch (e) { /* ignore */ }
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, [user]);
+
+  // load fees from backend (fallback to mock-generated fees)
+  useEffect(() => {
+    (async () => {
+      try {
+        const res: any = await feesApi.getFees();
+        const arr = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : (res && Array.isArray(res.fees) ? res.fees : []));
+        if (Array.isArray(arr) && arr.length > 0) {
+          setFees(arr.map((f: any) => ({ id: f._id || f.id, memberId: String(f.memberId), memberName: f.memberName || f.member || '', amount: f.amount, month: f.month, dueDate: f.dueDate, status: f.status, paidDate: f.paidDate })));
+        } else {
+          // fallback
+          const members = localStorage.getItem('gymMembers');
+          setFees(generateMockFees(members ? JSON.parse(members) : mockMembers, settings.monthlyFee));
+        }
+      } catch (e) {
+        const members = localStorage.getItem('gymMembers');
+        setFees(generateMockFees(members ? JSON.parse(members) : mockMembers, settings.monthlyFee));
+      }
+    })();
+  }, []);
+
+  // listen for settings changes and re-fetch fees immediately
+  useEffect(() => {
+    const handler = (evt: Event) => {
+      (async () => {
+        try {
+          const ce = evt as CustomEvent;
+          const newSettings = ce?.detail || (localStorage.getItem('gymSettings') ? JSON.parse(localStorage.getItem('gymSettings') as string) : null);
+          if (newSettings && typeof newSettings.monthlyFee === 'number') {
+            setSettings((prev) => ({ ...prev, monthlyFee: newSettings.monthlyFee }));
+            try { localStorage.setItem('gymSettings', JSON.stringify({ ...settings, monthlyFee: newSettings.monthlyFee })); } catch (e) { /* ignore */ }
+          }
+          try {
+            const res: any = await feesApi.getFees();
+            const arr = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : (res && Array.isArray(res.fees) ? res.fees : []));
+            if (Array.isArray(arr) && arr.length > 0) {
+              setFees(arr.map((f: any) => ({ id: f._id || f.id, memberId: String(f.memberId), memberName: f.memberName || f.member || '', amount: f.amount, month: f.month, dueDate: f.dueDate, status: f.status, paidDate: f.paidDate })));
+              return;
+            }
+          } catch (e) {
+            // ignore
+          }
+          // fallback to regenerate mock fees using updated monthlyFee
+          const members = localStorage.getItem('gymMembers');
+          setFees(generateMockFees(members ? JSON.parse(members) : mockMembers, (newSettings && typeof newSettings.monthlyFee === 'number') ? newSettings.monthlyFee : settings.monthlyFee));
+        } catch (e) {
+          // ignore
+        }
+      })();
+    };
+    window.addEventListener('gymSettingsUpdated', handler as EventListener);
+    return () => window.removeEventListener('gymSettingsUpdated', handler as EventListener);
+  }, [settings]);
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
 
