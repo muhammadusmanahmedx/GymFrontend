@@ -1,5 +1,5 @@
 // Use VITE_API_URL when set, otherwise default to deployed backend
-export const API = import.meta.env.VITE_API_URL || "http://localhost:3001";
+export const API = import.meta.env.VITE_API_URL || "https://gymbackendnestjs.vercel.app/";
 
 export async function authFetch(path: string, options: RequestInit = {}) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(options.headers as any) };
